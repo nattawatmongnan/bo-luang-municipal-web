@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import LocationPicker from './LocationPicker';
+import { isInsideBoLuang } from './boLuangBoundary';
 
 type Page = 'citizen' | 'track' | 'staff' | 'executive';
 type AppRole = 'citizen' | 'staff' | 'department' | 'executive' | 'admin';
@@ -258,11 +259,23 @@ export default function App() {
     setGpsMessage('กำลังค้นหาตำแหน่ง...');
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setLat(position.coords.latitude);
-        setLng(position.coords.longitude);
+        const nextLat = position.coords.latitude;
+        const nextLng = position.coords.longitude;
+
+        if (!isInsideBoLuang(nextLat, nextLng)) {
+          setLat(null);
+          setLng(null);
+          setLocationAccuracy(null);
+          setLocationConfirmed(false);
+          setGpsMessage('ตำแหน่งนี้อยู่นอกเขตเทศบาลตำบลบ่อหลวง');
+          return;
+        }
+
+        setLat(nextLat);
+        setLng(nextLng);
         setLocationAccuracy(position.coords.accuracy);
         setLocationConfirmed(false);
-        setGpsMessage('พบตำแหน่งแล้ว กรุณาตรวจสอบหมุดบนแผนที่และกดยืนยัน');
+        setGpsMessage('พบตำแหน่งในเขตเทศบาลแล้ว กรุณาตรวจสอบหมุดและกดยืนยัน');
       },
       () => setGpsMessage('ไม่สามารถอ่านตำแหน่งได้ กรุณาอนุญาต Location ในเบราว์เซอร์'),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
@@ -286,6 +299,11 @@ export default function App() {
 
     if (!payload.title || !payload.description || !payload.village) {
       setMessage('กรุณากรอกข้อมูลที่จำเป็นให้ครบ');
+      return;
+    }
+
+    if (lat !== null && lng !== null && !isInsideBoLuang(lat, lng)) {
+      setMessage('พิกัดอยู่นอกเขตเทศบาลตำบลบ่อหลวง');
       return;
     }
 
@@ -361,7 +379,11 @@ export default function App() {
     });
 
     if (error) {
-      setMessage('ส่งเรื่องไม่สำเร็จ กรุณาตรวจสอบข้อมูลแล้วลองใหม่');
+      if (error.message?.includes('OUTSIDE_BOLUANG')) {
+        setMessage('ไม่สามารถส่งพิกัดได้: ตำแหน่งอยู่นอกเขตเทศบาลตำบลบ่อหลวง');
+      } else {
+        setMessage('ส่งเรื่องไม่สำเร็จ กรุณาตรวจสอบข้อมูลแล้วลองใหม่');
+      }
       return;
     }
 
@@ -543,7 +565,11 @@ export default function App() {
                             setLat(nextLat);
                             setLng(nextLng);
                             setLocationConfirmed(false);
-                            setGpsMessage('มีการแก้ตำแหน่ง กรุณากดยืนยันอีกครั้ง');
+                            setGpsMessage('มีการแก้ตำแหน่งในเขตเทศบาล กรุณากดยืนยันอีกครั้ง');
+                          }}
+                          onOutside={() => {
+                            setLocationConfirmed(false);
+                            setGpsMessage('เลือกไม่ได้: จุดนี้อยู่นอกเขตเทศบาลตำบลบ่อหลวง');
                           }}
                         />
                         <div className="row location-confirm-row">
@@ -551,8 +577,13 @@ export default function App() {
                             className={`btn ${locationConfirmed ? 'secondary' : 'primary'}`}
                             type="button"
                             onClick={() => {
+                              if (lat === null || lng === null || !isInsideBoLuang(lat, lng)) {
+                                setLocationConfirmed(false);
+                                setGpsMessage('ยืนยันไม่ได้: ต้องเลือกจุดภายในเขตเทศบาลตำบลบ่อหลวง');
+                                return;
+                              }
                               setLocationConfirmed(true);
-                              setGpsMessage('ยืนยันตำแหน่งแล้ว พร้อมส่งเข้า GIS/QGIS');
+                              setGpsMessage('ยืนยันตำแหน่งในเขตเทศบาลแล้ว พร้อมส่งเข้า GIS/QGIS');
                             }}
                           >
                             {locationConfirmed ? '✓ ยืนยันตำแหน่งแล้ว' : 'ยืนยันตำแหน่งนี้'}
