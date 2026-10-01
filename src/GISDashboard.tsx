@@ -31,6 +31,26 @@ type Props = {
   canWrite: boolean;
 };
 
+const severityColor: Record<string, string> = {
+  LOW: '#16a34a',
+  MEDIUM: '#f59e0b',
+  HIGH: '#dc2626',
+};
+
+const severityLabel: Record<string, string> = {
+  LOW: 'ทั่วไป',
+  MEDIUM: 'เฝ้าระวัง',
+  HIGH: 'รุนแรง/ฉุกเฉิน',
+};
+
+const statusLabel: Record<string, string> = {
+  RECEIVED: 'รับเรื่องแล้ว',
+  VERIFYING: 'กำลังตรวจสอบ',
+  IN_PROGRESS: 'กำลังดำเนินการ',
+  DONE: 'ดำเนินการแล้ว',
+  CLOSED: 'ปิดเรื่อง',
+};
+
 export default function GISDashboard({ userId, canWrite }: Props) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -139,13 +159,29 @@ export default function GISDashboard({ userId, canWrite }: Props) {
 
     incidents.forEach((i) => {
       if (i.lat === null || i.lng === null) return;
-      const marker = L.circleMarker([i.lat, i.lng], {
-        radius: i.urgency === 'HIGH' ? 9 : 7,
-        weight: 2,
-        fillOpacity: 0.8,
+
+      const color = severityColor[i.urgency] || severityColor.MEDIUM;
+      const icon = L.divIcon({
+        className: 'incident-person-marker',
+        html: `
+          <div class="incident-person-dot" style="--incident-color:${color}" aria-label="${severityLabel[i.urgency] || i.urgency}">
+            <span class="incident-person-symbol">👤</span>
+            <span class="incident-severity-pip"></span>
+          </div>
+        `,
+        iconSize: [38, 38],
+        iconAnchor: [19, 19],
+        popupAnchor: [0, -18],
       });
+
+      const marker = L.marker([i.lat, i.lng], { icon });
       marker.bindPopup(
-        `<b>${i.title}</b><br>${i.tracking_no}<br>${i.village}<br>${i.category}<br>สถานะ: ${i.status}`,
+        `<b>${i.title}</b><br>
+        ${i.tracking_no}<br>
+        พื้นที่: ${i.village}<br>
+        ประเภท: ${i.category}<br>
+        ความรุนแรง: <b style="color:${color}">${severityLabel[i.urgency] || i.urgency}</b><br>
+        สถานะ: ${statusLabel[i.status] || i.status}`,
       );
       marker.addTo(layer);
     });
@@ -284,6 +320,13 @@ export default function GISDashboard({ userId, canWrite }: Props) {
           {message && <div className="muted" style={{ marginTop: 8 }}>{message}</div>}
         </div>
       )}
+
+      <div className="gis-severity-legend" aria-label="คำอธิบายระดับความรุนแรง">
+        <span><i className="legend-dot low" />ทั่วไป</span>
+        <span><i className="legend-dot medium" />เฝ้าระวัง</span>
+        <span><i className="legend-dot high" />รุนแรง/ฉุกเฉิน</span>
+        <span className="muted">👤 = จุดแจ้งเหตุจากประชาชน</span>
+      </div>
 
       <div ref={mapEl} className="gis-live-map" aria-label="แผนที่ GIS แบบ Realtime" />
 
