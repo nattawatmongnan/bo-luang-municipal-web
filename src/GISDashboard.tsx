@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from './lib/supabase';
@@ -14,6 +14,9 @@ type IncidentPoint = {
   village: string;
   lat: number | null;
   lng: number | null;
+  created_at?: string;
+  assigned_department?: string | null;
+  public_note?: string | null;
 };
 
 type EmergencyArea = {
@@ -68,13 +71,18 @@ export default function GISDashboard({ userId, canWrite }: Props) {
   const [areaTitle, setAreaTitle] = useState('');
   const [kind, setKind] = useState('FLOOD');
   const [severity, setSeverity] = useState('HIGH');
+  const [statusFilter, setStatusFilter] = useState('ACTIVE');
+  const [urgencyFilter, setUrgencyFilter] = useState('ALL');
+  const [villageFilter, setVillageFilter] = useState('ALL');
+  const [search, setSearch] = useState('');
+  const [selectedIncident, setSelectedIncident] = useState<IncidentPoint | null>(null);
 
   const reload = useCallback(async () => {
     if (!supabase) return;
     const [incidentResult, areaResult] = await Promise.all([
       supabase
         .from('municipal_incidents')
-        .select('id,tracking_no,title,category,urgency,status,village,lat,lng')
+        .select('id,tracking_no,title,category,urgency,status,village,lat,lng,created_at,assigned_department,public_note')
         .not('lat', 'is', null)
         .not('lng', 'is', null)
         .order('created_at', { ascending: false }),
@@ -87,6 +95,30 @@ export default function GISDashboard({ userId, canWrite }: Props) {
     if (!incidentResult.error) setIncidents((incidentResult.data || []) as IncidentPoint[]);
     if (!areaResult.error) setAreas((areaResult.data || []) as EmergencyArea[]);
   }, []);
+
+  const villages = useMemo(
+    () => Array.from(new Set(incidents.map((i) => i.village).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'th')),
+    [incidents],
+  );
+
+  const filteredIncidents = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return incidents.filter((i) => {
+      const statusOk =
+        statusFilter === 'ALL'
+          ? true
+          : statusFilter === 'ACTIVE'
+            ? !['DONE', 'CLOSED'].includes(i.status)
+            : i.status === statusFilter;
+      const urgencyOk = urgencyFilter === 'ALL' || i.urgency === urgencyFilter;
+      const villageOk = villageFilter === 'ALL' || i.village === villageFilter;
+      const searchOk =
+        !q ||
+        [i.tracking_no, i.title, i.category, i.village, i.assigned_department || '']
+          .some((value) => value.toLowerCase().includes(q));
+      return statusOk && urgencyOk && villageOk && searchOk;
+    });
+  }, [incidents, statusFilter, urgencyFilter, villageFilter, search]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -157,7 +189,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
     if (!layer) return;
     layer.clearLayers();
 
-    incidents.forEach((i) => {
+    filteredIncidents.forEach((i) => {
       if (i.lat === null || i.lng === null) return;
 
       const color = severityColor[i.urgency] || severityColor.MEDIUM;
@@ -175,6 +207,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
       });
 
       const marker = L.marker([i.lat, i.lng], { icon });
+      marker.on('click', () => setSelectedIncident(i));
       marker.bindPopup(
         `<b>${i.title}</b><br>
         ${i.tracking_no}<br>
@@ -185,7 +218,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
       );
       marker.addTo(layer);
     });
-  }, [incidents]);
+  }, [filteredIncidents]);
 
   useEffect(() => {
     const layer = areaLayerRef.current;
@@ -328,6 +361,48 @@ export default function GISDashboard({ userId, canWrite }: Props) {
         </div>
       )}
 
+      <section className="card gis-filters">
+        <div className="gis-filter-grid">
+          <label className="field">
+            ค้นหา
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="เลข BLM / หัวข้อ / หมู่บ้าน / หน่วยงาน"
+            />
+          </label>
+          <label className="field">
+            สถานะ
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="ACTIVE">เฉพาะงานที่ยังเปิดอยู่</option>
+              <option value="ALL">ทั้งหมด</option>
+              <option value="RECEIVED">รับเรื่องแล้ว</option>
+              <option value="VERIFYING">กำลังตรวจสอบ</option>
+              <option value="IN_PROGRESS">กำลังดำเนินการ</option>
+              <option value="DONE">ดำเนินการแล้ว</option>
+              <option value="CLOSED">ปิดเรื่อง</option>
+            </select>
+          </label>
+          <label className="field">
+            ความรุนแรง
+            <select value={urgencyFilter} onChange={(e) => setUrgencyFilter(e.target.value)}>
+              <option value="ALL">ทุกระดับ</option>
+              <option value="HIGH">รุนแรง/ฉุกเฉิน</option>
+              <option value="MEDIUM">เฝ้าระวัง</option>
+              <option value="LOW">ทั่วไป</option>
+            </select>
+          </label>
+          <label className="field">
+            หมู่บ้าน
+            <select value={villageFilter} onChange={(e) => setVillageFilter(e.target.value)}>
+              <option value="ALL">ทุกหมู่บ้าน</option>
+              {villages.map((village) => <option value={village} key={village}>{village}</option>)}
+            </select>
+          </label>
+        </div>
+        <div className="muted">แสดง {filteredIncidents.length} จาก {incidents.length} จุด</div>
+      </section>
+
       <div className="gis-severity-legend" aria-label="คำอธิบายระดับความรุนแรง">
         <span><i className="legend-dot low" />ทั่วไป</span>
         <span><i className="legend-dot medium" />เฝ้าระวัง</span>
@@ -336,6 +411,54 @@ export default function GISDashboard({ userId, canWrite }: Props) {
       </div>
 
       <div ref={mapEl} className="gis-live-map" aria-label="แผนที่ GIS แบบ Realtime" />
+
+      <div className="gis-below-grid">
+        <section className="card">
+          <h3>รายการจุดที่กำลังแสดง</h3>
+          <div className="gis-incident-list">
+            {filteredIncidents.length === 0 && <div className="muted">ไม่มีจุดที่ตรงกับตัวกรอง</div>}
+            {filteredIncidents.slice(0, 50).map((item) => (
+              <button
+                className={'gis-incident-row ' + (selectedIncident?.id === item.id ? 'active' : '')}
+                type="button"
+                key={item.id}
+                onClick={() => {
+                  setSelectedIncident(item);
+                  if (item.lat !== null && item.lng !== null) {
+                    mapRef.current?.setView([item.lat, item.lng], 17);
+                  }
+                }}
+              >
+                <span className="gis-incident-title">{item.title}</span>
+                <span className="muted">{item.tracking_no} · {item.village}</span>
+                <span>{severityLabel[item.urgency] || item.urgency} · {statusLabel[item.status] || item.status}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="card">
+          <h3>รายละเอียดจุด</h3>
+          {!selectedIncident ? (
+            <p className="muted">แตะหมุดหรือเลือกรายการเพื่อดูรายละเอียด</p>
+          ) : (
+            <div className="gis-detail">
+              <b>{selectedIncident.title}</b>
+              <div className="muted">{selectedIncident.tracking_no}</div>
+              <p>ประเภท: {selectedIncident.category}</p>
+              <p>พื้นที่: {selectedIncident.village}</p>
+              <p>ความรุนแรง: {severityLabel[selectedIncident.urgency] || selectedIncident.urgency}</p>
+              <p>สถานะ: {statusLabel[selectedIncident.status] || selectedIncident.status}</p>
+              {selectedIncident.assigned_department && <p>หน่วยงาน: {selectedIncident.assigned_department}</p>}
+              {selectedIncident.public_note && <p>อัปเดต: {selectedIncident.public_note}</p>}
+              {selectedIncident.created_at && <p className="muted">รับเรื่อง: {new Date(selectedIncident.created_at).toLocaleString('th-TH')}</p>}
+              {selectedIncident.lat !== null && selectedIncident.lng !== null && (
+                <p className="muted">พิกัด: {selectedIncident.lat.toFixed(6)}, {selectedIncident.lng.toFixed(6)}</p>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
 
       {areas.some((a) => a.active) && (
         <div className="card">
