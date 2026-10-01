@@ -1,16 +1,23 @@
 {
-  "name": "เทศบาลตำบลบ่อหลวง · Municipal One Stop",
-  "short_name": "บ่อหลวง",
-  "description": "ระบบแจ้งเหตุ ติดตามงาน และ GIS Live เทศบาลตำบลบ่อหลวง",
+  "name": "เทศบาลตำบลบ่อหลวง · BO-LUANG T CARE",
+  "short_name": "บ่อหลวง CARE",
+  "description": "ระบบแจ้งเหตุ ติดตามงาน GIS Live และบริการประชาชน เทศบาลตำบลบ่อหลวง",
   "lang": "th",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
   "orientation": "any",
-  "background_color": "#f8fafc",
-  "theme_color": "#064e3b",
-  "categories": ["government", "utilities", "productivity"],
+  "background_color": "#ffffff",
+  "theme_color": "#008746",
+  "categories": [
+    "government",
+    "utilities",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "/icons/bo-luang-icon.svg",
