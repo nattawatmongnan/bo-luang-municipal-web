@@ -572,7 +572,14 @@ export default function App() {
                     </label>
                     <label className="field">
                       หมู่บ้าน/หมู่ที่ *
-                      <select id="village-input" name="village" defaultValue="" required>
+                      <select
+                        id="village-input"
+                        name="village"
+                        defaultValue=""
+                        required
+                        aria-invalid={Boolean(formErrors.village)}
+                        aria-describedby={formErrors.village ? 'village-error' : undefined}
+                      >
                         <option value="" disabled>เลือกหมู่บ้าน/หมู่ที่</option>
                         <option value="หมู่ที่ 1 บ้านบ่อหลวง">หมู่ที่ 1 · บ้านบ่อหลวง</option>
                         <option value="หมู่ที่ 2 บ้านวังกอง">หมู่ที่ 2 · บ้านวังกอง</option>
@@ -587,6 +594,7 @@ export default function App() {
                         <option value="หมู่ที่ 12 บ้านบ่อพะแวน (ที่ตั้งสำนักงานเทศบาลตำบลบ่อหลวง)">หมู่ที่ 12 · บ้านบ่อพะแวน (ที่ตั้งสำนักงานเทศบาล)</option>
                         <option value="หมู่ที่ 13 บ้านแม่หืด">หมู่ที่ 13 · บ้านแม่หืด</option>
                       </select>
+                      {formErrors.village && <span id="village-error" className="field-error" role="alert">{formErrors.village}</span>}
                     </label>
                     <label className="field">
                       ความเร่งด่วน
@@ -598,14 +606,28 @@ export default function App() {
                     </label>
                   </div>
 
-                  <label className="field">
+                  <label className="field" htmlFor="title-input">
                     หัวข้อ *
-                    <input name="title" placeholder="สรุปเหตุสั้น ๆ" />
+                    <input
+                      id="title-input"
+                      name="title"
+                      placeholder="สรุปเหตุสั้น ๆ"
+                      aria-invalid={Boolean(formErrors.title)}
+                      aria-describedby={formErrors.title ? 'title-error' : undefined}
+                    />
+                    {formErrors.title && <span id="title-error" className="field-error" role="alert">{formErrors.title}</span>}
                   </label>
 
-                  <label className="field">
+                  <label className="field" htmlFor="description-input">
                     รายละเอียด *
-                    <textarea name="description" placeholder="อธิบายตำแหน่งและสิ่งที่ต้องการให้ช่วย" />
+                    <textarea
+                      id="description-input"
+                      name="description"
+                      placeholder="อธิบายตำแหน่งและสิ่งที่ต้องการให้ช่วย"
+                      aria-invalid={Boolean(formErrors.description)}
+                      aria-describedby={formErrors.description ? 'description-error' : undefined}
+                    />
+                    {formErrors.description && <span id="description-error" className="field-error" role="alert">{formErrors.description}</span>}
                   </label>
 
                   <div className="grid">
@@ -617,28 +639,39 @@ export default function App() {
                       ชื่อผู้แจ้ง
                       <input name="name" />
                     </label>
-                    <label className="field">
-                      เบอร์โทร
-                      <input name="phone" inputMode="tel" placeholder="ใช้ 4 หลักท้ายเพื่อติดตามเรื่อง" />
+                    <label className="field" htmlFor="phone-input">
+                      เบอร์โทร (ถ้ามี)
+                      <input
+                        id="phone-input"
+                        name="phone"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        placeholder="เช่น 0812345678"
+                        aria-invalid={Boolean(formErrors.phone)}
+                        aria-describedby={formErrors.phone ? 'phone-error phone-help' : 'phone-help'}
+                      />
+                      <span id="phone-help" className="muted">กรอกเบอร์โทรเต็ม โดยใช้ 4 หลักท้ายเพื่อยืนยันตอนติดตามเรื่อง</span>
+                      {formErrors.phone && <span id="phone-error" className="field-error" role="alert">{formErrors.phone}</span>}
                     </label>
                   </div>
 
                   <div className="field" id="manual-location-picker">
                     <span>ตำแหน่งจุดเกิดเหตุ *</span>
                     <p className="muted location-instruction">
-                      กรอกหมู่บ้าน/หมู่ที่ บ้านเลขที่ และรายละเอียดด้านบนก่อน จากนั้นแตะปักหมุดเองบนแผนที่
+                      เปิดแผนที่ได้ทันที แล้วแตะหรือลากหมุดไปยังจุดเกิดเหตุ จากนั้นกดยืนยันตำแหน่ง
                     </p>
                     <div className="row">
                       <button className="btn secondary" type="button" onClick={openManualLocationPicker}>
                         📍 เปิดแผนที่ปักหมุด
                       </button>
                       {lat !== null && lng !== null && (
-                        <span className="muted">
-                          หมุด: {lat.toFixed(6)}, {lng.toFixed(6)}
+                        <span className={locationConfirmed ? 'location-state confirmed' : 'location-state selected'}>
+                          {locationConfirmed ? '✓ ยืนยันตำแหน่งแล้ว' : '● เลือกหมุดแล้ว ยังไม่ได้ยืนยัน'} · {lat.toFixed(6)}, {lng.toFixed(6)}
                         </span>
                       )}
                     </div>
-                    {gpsMessage && <span className="muted">{gpsMessage}</span>}
+                    {gpsMessage && <span className="muted" aria-live="polite">{gpsMessage}</span>}
+                    {formErrors.location && <span className="field-error" role="alert">{formErrors.location}</span>}
 
                     {mapPickerOpen && (
                       <div className="location-picker-wrap">
@@ -697,17 +730,48 @@ export default function App() {
                       id="photo-input"
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
-                      onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                      aria-invalid={Boolean(formErrors.photo)}
+                      aria-describedby={formErrors.photo ? 'photo-error photo-help' : 'photo-help'}
+                      onChange={(e) => {
+                        setPhotoFile(e.target.files?.[0] || null);
+                        setFormErrors((current) => {
+                          const next = { ...current };
+                          delete next.photo;
+                          return next;
+                        });
+                      }}
                     />
-                    <span className="muted">JPG, PNG หรือ WebP ไม่เกิน 5 MB</span>
+                    <span id="photo-help" className="muted">JPG, PNG หรือ WebP ไม่เกิน 5 MB</span>
+                    {formErrors.photo && <span id="photo-error" className="field-error" role="alert">{formErrors.photo}</span>}
                   </label>
 
-                  <button className="btn primary">ส่งเรื่องให้เทศบาล</button>
+                  <div className="privacy-note">
+                    <b>การใช้ข้อมูล:</b> ระบบจะใช้ชื่อ เบอร์โทร พิกัด และรูปภาพที่คุณกรอก/แนบ เพื่อรับเรื่อง ติดตาม และดำเนินการแจ้งเหตุในระบบนี้
+                    กรุณาใส่เฉพาะข้อมูลที่จำเป็น ขณะนี้โครงการยังไม่มีข้อความนโยบายเรื่องระยะเวลาเก็บข้อมูลหรือช่องทางผู้รับผิดชอบที่ยืนยันแล้ว จึงไม่แสดงข้อมูลส่วนนั้นแทนผู้ดูแล
+                  </div>
+
+                  <button className="btn primary submit-button" disabled={submitting}>
+                    {submitting ? 'กำลังส่งเรื่อง…' : 'ส่งเรื่องให้เทศบาล'}
+                  </button>
                 </form>
 
                 {message && (
-                  <div className={'notice ' + (message.startsWith('ส่งเรื่องสำเร็จ') ? 'ok' : '')} style={{ marginTop: 14 }}>
-                    {message}
+                  <div
+                    className={'notice ' + (lastTrackingNo ? 'ok' : '')}
+                    style={{ marginTop: 14 }}
+                    role={lastTrackingNo ? 'status' : 'alert'}
+                    aria-live="polite"
+                  >
+                    <div>{message}</div>
+                    {lastTrackingNo && (
+                      <div className="tracking-success">
+                        <strong>เลขติดตาม: <span className="tracking-code">{lastTrackingNo}</span></strong>
+                        <button className="btn secondary" type="button" onClick={() => void copyTrackingNumber()}>
+                          คัดลอกเลขติดตาม
+                        </button>
+                        {copyStatus && <span className="muted">{copyStatus}</span>}
+                      </div>
+                    )}
                   </div>
                 )}
               </section>
@@ -744,32 +808,52 @@ export default function App() {
         )}
 
         {page === 'track' && (
-          <section className="card">
+          <section className="card track-card">
             <h2>ติดตามเรื่อง</h2>
-            <p className="muted">กรอกเลขติดตาม และหากตอนแจ้งเหตุใส่เบอร์โทร ให้กรอก 4 หลักท้ายด้วย</p>
-            <div className="row">
-              <input
-                style={{ flex: 2, minWidth: 250, padding: 12, borderRadius: 12, border: '1px solid #cbd5e1' }}
-                value={tracking}
-                onChange={(e) => setTracking(e.target.value)}
-                placeholder="BLM-2569-..."
-              />
-              <input
-                style={{ width: 160, padding: 12, borderRadius: 12, border: '1px solid #cbd5e1' }}
-                value={phoneLast4}
-                onChange={(e) => setPhoneLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                inputMode="numeric"
-                placeholder="4 หลักท้าย"
-              />
-              <button className="btn primary" onClick={doTrack}>
-                ค้นหา
+            <p className="muted">
+              ถ้าตอนแจ้งเหตุไม่ได้กรอกเบอร์โทร ใช้เลขติดตามเรื่องอย่างเดียวได้ แต่ถ้ากรอกเบอร์โทรไว้ ต้องกรอก 4 หลักท้ายของเบอร์นั้นเพื่อยืนยัน
+            </p>
+            <form className="track-form" onSubmit={doTrack}>
+              <label className="field" htmlFor="tracking-input">
+                เลขติดตามเรื่อง
+                <input
+                  id="tracking-input"
+                  value={tracking}
+                  onChange={(e) => setTracking(e.target.value.toUpperCase())}
+                  autoComplete="off"
+                  placeholder="ตัวอย่าง BLM-2569-XXXXXXXXXX"
+                  required
+                />
+              </label>
+              <label className="field" htmlFor="tracking-phone-input">
+                เบอร์โทร 4 หลักท้าย (กรอกเมื่อเคยระบุเบอร์โทรตอนแจ้งเหตุ)
+                <input
+                  id="tracking-phone-input"
+                  value={phoneLast4}
+                  onChange={(e) => setPhoneLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  inputMode="numeric"
+                  pattern="[0-9]{4}"
+                  maxLength={4}
+                  autoComplete="off"
+                />
+              </label>
+              <button className="btn primary" type="submit" disabled={trackingLoading}>
+                {trackingLoading ? 'กำลังค้นหา…' : 'ค้นหา'}
               </button>
-            </div>
+            </form>
 
-            {trackMessage && <p className="muted">{trackMessage}</p>}
+            {trackMessage && (
+              <div
+                className={trackMessage.startsWith('กำลังค้นหา') ? 'muted track-message' : 'notice track-message'}
+                role={trackMessage.startsWith('กำลังค้นหา') ? 'status' : 'alert'}
+                aria-live="polite"
+              >
+                {trackMessage}
+              </div>
+            )}
 
             {found && (
-              <div className="item" style={{ marginTop: 16 }}>
+              <div className="item" style={{ marginTop: 16 }} aria-live="polite">
                 <b>{found.title}</b>
                 <p>{found.tracking_no}</p>
                 <span className="status">{labels[found.status] || found.status}</span>
@@ -789,7 +873,7 @@ export default function App() {
                   <div><b>เทศบาลตำบลบ่อหลวง</b><span>BO-LUANG T CARE</span></div>
                 </div>
                 <h2>เข้าสู่ระบบเจ้าหน้าที่</h2>
-                <p className="muted">ใช้บัญชีที่สร้างไว้ใน Supabase Authentication</p>
+                <p className="muted">ใช้บัญชีที่เทศบาลออกให้</p>
                 <form onSubmit={handleLogin}>
                   <label className="field">
                     อีเมล
@@ -899,9 +983,10 @@ export default function App() {
         {page === 'gis' && (
           <>
             {!demo && !session && (
-              <section className="card">
-                <h2>กรุณาเข้าสู่ระบบจากหน้า “เจ้าหน้าที่” ก่อน</h2>
+              <section className="card access-gate">
+                <h2>กรุณาเข้าสู่ระบบก่อน</h2>
                 <p className="muted">GIS Live สำหรับเจ้าหน้าที่และผู้บริหารเทศบาล</p>
+                <button className="btn primary" type="button" onClick={() => setPage('staff')}>ไปหน้าเข้าสู่ระบบ</button>
               </section>
             )}
 
@@ -933,8 +1018,9 @@ export default function App() {
         {page === 'executive' && (
           <>
             {!demo && !session && (
-              <section className="card">
-                <h2>กรุณาเข้าสู่ระบบจากหน้า “เจ้าหน้าที่” ก่อน</h2>
+              <section className="card access-gate">
+                <h2>กรุณาเข้าสู่ระบบก่อน</h2>
+                <button className="btn primary" type="button" onClick={() => setPage('staff')}>ไปหน้าเข้าสู่ระบบ</button>
               </section>
             )}
 
