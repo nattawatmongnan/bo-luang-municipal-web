@@ -94,8 +94,8 @@ export default function App() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
-  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [locationConfirmed, setLocationConfirmed] = useState(false);
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [gpsMessage, setGpsMessage] = useState('');
 
   const demo = !supabaseConfigured || import.meta.env.VITE_DEMO_MODE === 'true';
@@ -254,35 +254,13 @@ export default function App() {
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
   }
 
-  function useCurrentLocation() {
-    if (!navigator.geolocation) {
-      setGpsMessage('อุปกรณ์นี้ไม่รองรับ GPS');
-      return;
-    }
-    setGpsMessage('กำลังค้นหาตำแหน่ง...');
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const nextLat = position.coords.latitude;
-        const nextLng = position.coords.longitude;
-
-        if (!isInsideBoLuang(nextLat, nextLng)) {
-          setLat(null);
-          setLng(null);
-          setLocationAccuracy(null);
-          setLocationConfirmed(false);
-          setGpsMessage('ตำแหน่งนี้อยู่นอกเขตเทศบาลตำบลบ่อหลวง');
-          return;
-        }
-
-        setLat(nextLat);
-        setLng(nextLng);
-        setLocationAccuracy(position.coords.accuracy);
-        setLocationConfirmed(false);
-        setGpsMessage('พบตำแหน่งในเขตเทศบาลแล้ว กรุณาตรวจสอบหมุดและกดยืนยัน');
-      },
-      () => setGpsMessage('ไม่สามารถอ่านตำแหน่งได้ กรุณาอนุญาต Location ในเบราว์เซอร์'),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
-    );
+  function openManualLocationPicker() {
+    setMapPickerOpen(true);
+    setLocationConfirmed(false);
+    setGpsMessage('กรอกข้อมูลสถานที่ด้านบน แล้วแตะบนแผนที่เพื่อปักหมุดจุดเกิดเหตุ');
+    window.setTimeout(() => {
+      document.getElementById('manual-location-picker')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
   }
 
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -305,13 +283,19 @@ export default function App() {
       return;
     }
 
-    if (lat !== null && lng !== null && !isInsideBoLuang(lat, lng)) {
+    if (lat === null || lng === null) {
+      setMessage('กรุณาปักหมุดจุดเกิดเหตุบนแผนที่ก่อนส่งเรื่อง');
+      setMapPickerOpen(true);
+      return;
+    }
+
+    if (!isInsideBoLuang(lat, lng)) {
       setMessage('พิกัดอยู่นอกเขตเทศบาลตำบลบ่อหลวง');
       return;
     }
 
-    if (lat !== null && lng !== null && !locationConfirmed) {
-      setMessage('กรุณากดยืนยันตำแหน่งบนแผนที่ก่อนส่งเรื่อง');
+    if (!locationConfirmed) {
+      setMessage('กรุณากดยืนยันหมุดตำแหน่งก่อนส่งเรื่อง');
       return;
     }
 
@@ -377,7 +361,7 @@ export default function App() {
       p_photo_path: photoPath,
       p_lat: lat,
       p_lng: lng,
-      p_accuracy_m: locationAccuracy,
+      p_accuracy_m: null,
       p_location_confirmed: locationConfirmed,
     });
 
@@ -396,8 +380,8 @@ export default function App() {
     setPhotoFile(null);
     setLat(null);
     setLng(null);
-    setLocationAccuracy(null);
     setLocationConfirmed(false);
+    setMapPickerOpen(false);
     setGpsMessage('');
   }
 
@@ -450,9 +434,13 @@ export default function App() {
     <div className="app">
       <header className="top">
         <div className="top-inner">
-          <div>
-            <div className="brand">เทศบาลตำบลบ่อหลวง · Municipal One Stop</div>
-            <div className="sub">แจ้งเหตุ · ติดตามงาน · ศูนย์งานเจ้าหน้าที่</div>
+          <div className="brand-lockup">
+            <img src="/icons/bo-luang-icon.svg" alt="โลโก้เทศบาลตำบลบ่อหลวง" className="brand-logo" />
+            <div>
+              <div className="brand">เทศบาลตำบลบ่อหลวง</div>
+              <div className="brand-en">BO-LUANG T CARE</div>
+              <div className="sub">แจ้งเหตุ · ติดตามงาน · GIS Live · ศูนย์งานเจ้าหน้าที่</div>
+            </div>
           </div>
           <nav className="nav">
             {([
@@ -544,33 +532,34 @@ export default function App() {
                     </label>
                   </div>
 
-                  <div className="field">
-                    <span>พิกัด GIS (ถ้ามี)</span>
+                  <div className="field" id="manual-location-picker">
+                    <span>ตำแหน่งจุดเกิดเหตุ *</span>
+                    <p className="muted location-instruction">
+                      กรอกหมู่บ้าน/หมู่ที่ บ้านเลขที่ และรายละเอียดด้านบนก่อน จากนั้นแตะปักหมุดเองบนแผนที่
+                    </p>
                     <div className="row">
-                      <button className="btn secondary" type="button" onClick={useCurrentLocation}>
-                        📍 ใช้ตำแหน่งปัจจุบัน
+                      <button className="btn secondary" type="button" onClick={openManualLocationPicker}>
+                        📍 เปิดแผนที่ปักหมุด
                       </button>
                       {lat !== null && lng !== null && (
                         <span className="muted">
-                          {lat.toFixed(6)}, {lng.toFixed(6)}
-                          {locationAccuracy !== null ? ` · ความแม่นยำประมาณ ±${Math.round(locationAccuracy)} ม.` : ''}
+                          หมุด: {lat.toFixed(6)}, {lng.toFixed(6)}
                         </span>
                       )}
                     </div>
                     {gpsMessage && <span className="muted">{gpsMessage}</span>}
 
-                    {lat !== null && lng !== null && (
+                    {mapPickerOpen && (
                       <div className="location-picker-wrap">
                         <Suspense fallback={<div className="map-loading">กำลังโหลดแผนที่...</div>}>
                           <LocationPicker
                             lat={lat}
                             lng={lng}
-                            accuracy={locationAccuracy}
                             onChange={(nextLat, nextLng) => {
                               setLat(nextLat);
                               setLng(nextLng);
                               setLocationConfirmed(false);
-                              setGpsMessage('มีการแก้ตำแหน่งในเขตเทศบาล กรุณากดยืนยันอีกครั้ง');
+                              setGpsMessage('ปักหมุดแล้ว กรุณาตรวจสอบจุดและกดยืนยัน');
                             }}
                             onOutside={() => {
                               setLocationConfirmed(false);
@@ -582,17 +571,18 @@ export default function App() {
                           <button
                             className={`btn ${locationConfirmed ? 'secondary' : 'primary'}`}
                             type="button"
+                            disabled={lat === null || lng === null}
                             onClick={() => {
                               if (lat === null || lng === null || !isInsideBoLuang(lat, lng)) {
                                 setLocationConfirmed(false);
-                                setGpsMessage('ยืนยันไม่ได้: ต้องเลือกจุดภายในเขตเทศบาลตำบลบ่อหลวง');
+                                setGpsMessage('กรุณาแตะบนแผนที่เพื่อปักหมุดภายในเขตเทศบาลตำบลบ่อหลวง');
                                 return;
                               }
                               setLocationConfirmed(true);
-                              setGpsMessage('ยืนยันตำแหน่งในเขตเทศบาลแล้ว พร้อมส่งเข้า GIS/QGIS');
+                              setGpsMessage('✓ ยืนยันหมุดแล้ว พร้อมส่งเข้า GIS/QGIS');
                             }}
                           >
-                            {locationConfirmed ? '✓ ยืนยันตำแหน่งแล้ว' : 'ยืนยันตำแหน่งนี้'}
+                            {locationConfirmed ? '✓ ยืนยันหมุดแล้ว' : 'ยืนยันหมุดตำแหน่งนี้'}
                           </button>
                           <button
                             className="btn secondary"
@@ -600,18 +590,16 @@ export default function App() {
                             onClick={() => {
                               setLat(null);
                               setLng(null);
-                              setLocationAccuracy(null);
                               setLocationConfirmed(false);
-                              setGpsMessage('ล้างตำแหน่งแล้ว');
+                              setGpsMessage('ล้างหมุดแล้ว กรุณาปักจุดใหม่');
                             }}
                           >
-                            ล้างตำแหน่ง
+                            ล้างหมุด
                           </button>
                         </div>
                       </div>
                     )}
                   </div>
-
                   <label className="field">
                     รูปหลักฐาน (ถ้ามี)
                     <input
@@ -640,11 +628,10 @@ export default function App() {
                     className="item service-button"
                     type="button"
                     onClick={() => {
-                      useCurrentLocation();
-                      document.getElementById('village-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      openManualLocationPicker();
                     }}
                   >
-                    📍 ระบุตำแหน่งและหมู่บ้าน
+                    📍 ปักหมุดจุดเกิดเหตุ
                   </button>
                   <button
                     className="item service-button"
@@ -706,6 +693,10 @@ export default function App() {
           <>
             {!demo && !session && (
               <section className="card" style={{ maxWidth: 520, margin: '0 auto' }}>
+                <div className="login-brand">
+                  <img src="/icons/bo-luang-icon.svg" alt="" className="login-logo" />
+                  <div><b>เทศบาลตำบลบ่อหลวง</b><span>BO-LUANG T CARE</span></div>
+                </div>
                 <h2>เข้าสู่ระบบเจ้าหน้าที่</h2>
                 <p className="muted">ใช้บัญชีที่สร้างไว้ใน Supabase Authentication</p>
                 <form onSubmit={handleLogin}>
@@ -888,7 +879,7 @@ export default function App() {
 
       <footer className="footer">
         <PWAInstall />
-        <span>Bo Luang Municipal Web · PWA + Supabase Realtime + PostGIS</span>
+        <span className="footer-brand"><img src="/icons/bo-luang-icon.svg" alt="" /> เทศบาลตำบลบ่อหลวง · BO-LUANG T CARE</span>
       </footer>
     </div>
   );
