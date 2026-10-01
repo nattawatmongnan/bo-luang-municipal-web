@@ -1,0 +1,28 @@
+{
+  "name": "เทศบาลตำบลบ่อหลวง · Municipal One Stop",
+  "short_name": "บ่อหลวง",
+  "description": "ระบบแจ้งเหตุ ติดตามงาน และ GIS Live เทศบาลตำบลบ่อหลวง",
+  "lang": "th",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#064e3b",
+  "categories": ["government", "utilities", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/bo-luang-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/bo-luang-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
