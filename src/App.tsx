@@ -96,6 +96,9 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [staffLoading, setStaffLoading] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
+  const [adminProfiles, setAdminProfiles] = useState<Profile[]>([]);
+  const [adminProfilesLoading, setAdminProfilesLoading] = useState(false);
+  const [adminProfileMessage, setAdminProfileMessage] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
@@ -169,7 +172,55 @@ export default function App() {
       setItems((incidents || []) as Incident[]);
     }
 
+    if (nextProfile.role === 'admin') {
+      await loadAdminProfiles();
+    } else {
+      setAdminProfiles([]);
+    }
+
     setStaffLoading(false);
+  }
+
+  async function loadAdminProfiles() {
+    if (!supabase) return;
+    setAdminProfilesLoading(true);
+    setAdminProfileMessage('');
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id,display_name,role,department')
+      .order('display_name', { ascending: true, nullsFirst: false });
+
+    if (error) {
+      setAdminProfiles([]);
+      setAdminProfileMessage('โหลดรายชื่อบัญชีที่มี profile ไม่สำเร็จ');
+    } else {
+      setAdminProfiles((data || []) as Profile[]);
+    }
+
+    setAdminProfilesLoading(false);
+  }
+
+  async function saveAdminProfile(item: Profile) {
+    if (!supabase || profile?.role !== 'admin') return;
+
+    setAdminProfileMessage('');
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        display_name: item.display_name?.trim() || null,
+        role: item.role,
+        department: item.department?.trim() || null,
+      })
+      .eq('id', item.id);
+
+    if (error) {
+      setAdminProfileMessage('บันทึกสิทธิ์ไม่สำเร็จ');
+      return;
+    }
+
+    setAdminProfileMessage('บันทึกสิทธิ์แล้ว');
+    await loadAdminProfiles();
   }
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
@@ -214,34 +265,30 @@ export default function App() {
           ? 'ดำเนินการเรียบร้อย'
           : status === 'CLOSED'
             ? 'ปิดเรื่องแล้ว'
-            : 'เจ้าหน้าที่อัปเดตสถานะ';
+            : status === 'VERIFYING'
+              ? 'เจ้าหน้าที่กำลังตรวจสอบ'
+              : 'เจ้าหน้าที่อัปเดตสถานะ';
 
-    const patch: Record<string, string | null> = {
-      status,
-      public_note: note,
-    };
+    const assignedDepartment =
+      status === 'IN_PROGRESS' && !incident.assigned_department
+        ? profile.department || 'เจ้าหน้าที่เทศบาล'
+        : incident.assigned_department || null;
 
-    if (status === 'IN_PROGRESS' && !incident.assigned_department) {
-      patch.assigned_department = profile.department || 'เจ้าหน้าที่เทศบาล';
-    }
+    setAuthMessage('กำลังอัปเดตสถานะ…');
 
-    const { error } = await supabase
-      .from('municipal_incidents')
-      .update(patch)
-      .eq('id', incident.id);
+    const { error } = await supabase.rpc('update_incident_status', {
+      p_incident_id: incident.id,
+      p_status: status,
+      p_public_note: note,
+      p_assigned_department: assignedDepartment,
+    });
 
     if (error) {
-      setAuthMessage('อัปเดตสถานะไม่สำเร็จ');
+      setAuthMessage('อัปเดตสถานะไม่สำเร็จ ข้อมูลเดิมยังไม่ถูกเปลี่ยน');
       return;
     }
 
-    await supabase.from('incident_status_history').insert({
-      incident_id: incident.id,
-      status,
-      public_note: note,
-      changed_by: session.user.id,
-    });
-
+    setAuthMessage('อัปเดตสถานะและบันทึกประวัติเรียบร้อยแล้ว');
     await loadProfileAndIncidents(session.user.id);
   }
 
@@ -400,7 +447,9 @@ export default function App() {
       });
 
       if (error) {
-        if (error.message?.includes('OUTSIDE_BOLUANG')) {
+        if (error.message?.includes('RATE_LIMITED')) {
+          setMessage('ส่งเรื่องบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่');
+        } else if (error.message?.includes('OUTSIDE_BOLUANG')) {
           setFormErrors({ location: 'จุดที่เลือกอยู่นอกขอบเขตที่เซิร์ฟเวอร์อนุญาต' });
           setMessage('ไม่สามารถส่งเรื่องได้ กรุณาตรวจสอบตำแหน่ง');
           focusProblem('manual-location-picker');
@@ -470,11 +519,14 @@ export default function App() {
       });
 
       if (error) {
-        const msg = (error.message || '').toLowerCase();
+        const raw = error.message || '';
+        const msg = raw.toLowerCase();
         setTrackMessage(
-          msg.includes('fetch') || msg.includes('network')
-            ? 'เชื่อมต่อเครือข่ายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'
-            : 'ระบบติดตามขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง',
+          raw.includes('RATE_LIMITED')
+            ? 'ค้นหาบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่'
+            : msg.includes('fetch') || msg.includes('network')
+              ? 'เชื่อมต่อเครือข่ายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'
+              : 'ระบบติดตามขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง',
         );
         return;
       }
@@ -923,6 +975,71 @@ export default function App() {
                 {authMessage && <div className="notice">{authMessage}</div>}
 
                 {staffLoading && <div className="card">กำลังโหลดข้อมูล...</div>}
+
+                {!staffLoading && profile?.role === 'admin' && (
+                  <section className="card admin-profile-card">
+                    <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <h2>จัดการสิทธิ์บัญชีเจ้าหน้าที่</h2>
+                        <p className="muted">จัดการเฉพาะบัญชีที่มี profile อยู่แล้ว ระบบนี้ไม่สร้างหรือลบรหัสผ่านของผู้ใช้ Auth</p>
+                      </div>
+                      <button className="btn secondary" type="button" onClick={() => void loadAdminProfiles()}>
+                        รีเฟรชบัญชี
+                      </button>
+                    </div>
+
+                    {adminProfileMessage && <div className="notice" aria-live="polite">{adminProfileMessage}</div>}
+                    {adminProfilesLoading && <div className="muted">กำลังโหลดบัญชี…</div>}
+
+                    {!adminProfilesLoading && (
+                      <div className="admin-profile-list">
+                        {adminProfiles.map((account) => (
+                          <div className="admin-profile-row" key={account.id}>
+                            <label className="field">
+                              ชื่อแสดง
+                              <input
+                                value={account.display_name || ''}
+                                onChange={(e) => setAdminProfiles((current) => current.map((p) =>
+                                  p.id === account.id ? { ...p, display_name: e.target.value } : p
+                                ))}
+                              />
+                            </label>
+                            <label className="field">
+                              บทบาท
+                              <select
+                                value={account.role}
+                                disabled={account.id === session?.user.id}
+                                onChange={(e) => setAdminProfiles((current) => current.map((p) =>
+                                  p.id === account.id ? { ...p, role: e.target.value as AppRole } : p
+                                ))}
+                              >
+                                <option value="citizen">ประชาชน</option>
+                                <option value="staff">เจ้าหน้าที่</option>
+                                <option value="department">ฝ่ายงาน</option>
+                                <option value="executive">ผู้บริหาร</option>
+                                <option value="admin">ผู้ดูแลระบบ</option>
+                              </select>
+                              {account.id === session?.user.id && <span className="muted">ไม่ให้ลดสิทธิ์บัญชีตัวเองจากหน้านี้</span>}
+                            </label>
+                            <label className="field">
+                              หน่วยงาน
+                              <input
+                                value={account.department || ''}
+                                onChange={(e) => setAdminProfiles((current) => current.map((p) =>
+                                  p.id === account.id ? { ...p, department: e.target.value } : p
+                                ))}
+                                placeholder="เช่น กองช่าง"
+                              />
+                            </label>
+                            <button className="btn primary" type="button" onClick={() => void saveAdminProfile(account)}>
+                              บันทึก
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                )}
 
                 {!staffLoading && canViewStaff && (
                   <div className="list">
