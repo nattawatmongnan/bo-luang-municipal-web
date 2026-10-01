@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { BO_LUANG_BOUNDARY, isInsideBoLuang } from './boLuangBoundary';
+import { BO_LUANG_BOUNDARY, BO_LUANG_BOUNDARY_SOURCE, isInsideBoLuang } from './boLuangBoundary';
 
 type Props = {
   lat: number | null;
@@ -18,6 +18,9 @@ export default function LocationPicker({ lat, lng, onChange, onOutside }: Props)
   const onOutsideRef = useRef(onOutside);
   const latRef = useRef(lat);
   const lngRef = useRef(lng);
+  const [mapLoading, setMapLoading] = useState(true);
+  const [mapError, setMapError] = useState('');
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -29,87 +32,102 @@ export default function LocationPicker({ lat, lng, onChange, onOutside }: Props)
   useEffect(() => {
     if (!mapElement.current || mapRef.current) return;
 
-    const boundary = L.polygon(BO_LUANG_BOUNDARY);
-    const bounds = boundary.getBounds();
+    setMapLoading(true);
+    setMapError('');
 
-    const map = L.map(mapElement.current, {
-      zoomControl: true,
-      maxBounds: bounds.pad(0.08),
-      maxBoundsViscosity: 1,
-    });
+    try {
+      const boundary = L.polygon(BO_LUANG_BOUNDARY);
+      const bounds = boundary.getBounds();
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(map);
+      const map = L.map(mapElement.current, {
+        zoomControl: true,
+        maxBounds: bounds.pad(0.08),
+        maxBoundsViscosity: 1,
+      });
 
-    L.polygon(BO_LUANG_BOUNDARY, {
-      weight: 3,
-      fillOpacity: 0.05,
-    }).addTo(map);
+      const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+      });
 
-    map.fitBounds(bounds, { padding: [16, 16] });
+      tiles.once('load', () => setMapLoading(false));
+      tiles.on('tileerror', () => {
+        setMapLoading(false);
+        setMapError('โหลดแผนที่พื้นหลังไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+      });
+      tiles.addTo(map);
 
-    const icon = L.divIcon({
-      className: 'location-pin-icon',
-      html: '<div class="location-pin-emoji">📍</div>',
-      iconSize: [42, 42],
-      iconAnchor: [21, 40],
-    });
+      L.polygon(BO_LUANG_BOUNDARY, {
+        weight: 3,
+        fillOpacity: 0.05,
+      }).addTo(map);
 
-    const placeMarker = (point: L.LatLng) => {
-      if (!markerRef.current) {
-        const marker = L.marker(point, {
-          draggable: true,
-          icon,
-          autoPan: true,
-        }).addTo(map);
+      map.fitBounds(bounds, { padding: [16, 16] });
 
-        marker.on('dragend', () => {
-          const next = marker.getLatLng();
-          if (!isInsideBoLuang(next.lat, next.lng)) {
-            const currentLat = latRef.current;
-            const currentLng = lngRef.current;
-            if (currentLat !== null && currentLng !== null) {
-              marker.setLatLng([currentLat, currentLng]);
-            } else {
-              marker.remove();
-              markerRef.current = null;
+      const icon = L.divIcon({
+        className: 'location-pin-icon',
+        html: '<div class="location-pin-emoji">📍</div>',
+        iconSize: [42, 42],
+        iconAnchor: [21, 40],
+      });
+
+      const placeMarker = (point: L.LatLng) => {
+        if (!markerRef.current) {
+          const marker = L.marker(point, {
+            draggable: true,
+            icon,
+            autoPan: true,
+          }).addTo(map);
+
+          marker.on('dragend', () => {
+            const next = marker.getLatLng();
+            if (!isInsideBoLuang(next.lat, next.lng)) {
+              const currentLat = latRef.current;
+              const currentLng = lngRef.current;
+              if (currentLat !== null && currentLng !== null) {
+                marker.setLatLng([currentLat, currentLng]);
+              } else {
+                marker.remove();
+                markerRef.current = null;
+              }
+              onOutsideRef.current?.();
+              return;
             }
-            onOutsideRef.current?.();
-            return;
-          }
-          onChangeRef.current(next.lat, next.lng);
-        });
+            onChangeRef.current(next.lat, next.lng);
+          });
 
-        markerRef.current = marker;
-      } else {
-        markerRef.current.setLatLng(point);
+          markerRef.current = marker;
+        } else {
+          markerRef.current.setLatLng(point);
+        }
+      };
+
+      map.on('click', (event: L.LeafletMouseEvent) => {
+        if (!isInsideBoLuang(event.latlng.lat, event.latlng.lng)) {
+          onOutsideRef.current?.();
+          return;
+        }
+        placeMarker(event.latlng);
+        onChangeRef.current(event.latlng.lat, event.latlng.lng);
+      });
+
+      if (latRef.current !== null && lngRef.current !== null && isInsideBoLuang(latRef.current, lngRef.current)) {
+        placeMarker(L.latLng(latRef.current, lngRef.current));
+        map.setView([latRef.current, lngRef.current], 16);
       }
-    };
 
-    map.on('click', (event: L.LeafletMouseEvent) => {
-      if (!isInsideBoLuang(event.latlng.lat, event.latlng.lng)) {
-        onOutsideRef.current?.();
-        return;
-      }
-      placeMarker(event.latlng);
-      onChangeRef.current(event.latlng.lat, event.latlng.lng);
-    });
-
-    if (latRef.current !== null && lngRef.current !== null && isInsideBoLuang(latRef.current, lngRef.current)) {
-      placeMarker(L.latLng(latRef.current, lngRef.current));
-      map.setView([latRef.current, lngRef.current], 16);
+      mapRef.current = map;
+    } catch {
+      setMapLoading(false);
+      setMapError('ไม่สามารถเปิดแผนที่ได้');
     }
 
-    mapRef.current = map;
-
     return () => {
-      map.remove();
+      mapRef.current?.remove();
       mapRef.current = null;
       markerRef.current = null;
     };
-  }, []);
+  }, [retryKey]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -131,10 +149,22 @@ export default function LocationPicker({ lat, lng, onChange, onOutside }: Props)
 
   return (
     <div>
-      <div ref={mapElement} className="location-map" aria-label="แผนที่ปักหมุดตำแหน่งเหตุ" />
-      <div className="muted location-map-help">
-        แตะบนแผนที่เพื่อปักหมุด หรือลากหมุด 📍 ไปยังจุดเกิดเหตุจริง โดยเลือกได้เฉพาะในเขตเทศบาลตำบลบ่อหลวง
+      <div className="map-frame">
+        <div ref={mapElement} className="location-map" aria-label="แผนที่ปักหมุดตำแหน่งเหตุ" />
+        {mapLoading && <div className="map-overlay" role="status">กำลังโหลดแผนที่…</div>}
+        {mapError && (
+          <div className="map-overlay map-error" role="alert">
+            <span>{mapError}</span>
+            <button className="btn secondary" type="button" onClick={() => setRetryKey((v) => v + 1)}>
+              ลองใหม่
+            </button>
+          </div>
+        )}
       </div>
+      <div className="muted location-map-help">
+        แตะบนแผนที่เพื่อปักหมุด หรือลากหมุด 📍 ไปยังจุดเกิดเหตุจริง
+      </div>
+      <div className="boundary-note">{BO_LUANG_BOUNDARY_SOURCE}</div>
     </div>
   );
 }
