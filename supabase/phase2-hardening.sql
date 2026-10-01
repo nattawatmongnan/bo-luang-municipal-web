@@ -14,6 +14,14 @@ on private.api_rate_limit_events(action, client_hash, created_at desc);
 
 alter table private.api_rate_limit_events enable row level security;
 
+drop policy if exists api_rate_limits_deny_clients on private.api_rate_limit_events;
+create policy api_rate_limits_deny_clients
+on private.api_rate_limit_events
+for all
+to anon, authenticated
+using (false)
+with check (false);
+
 create or replace function private.consume_api_rate_limit(
   p_action text,
   p_max_requests integer,
