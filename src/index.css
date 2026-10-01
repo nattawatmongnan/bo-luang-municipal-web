@@ -97,3 +97,27 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .nav button{padding:8px 10px}
   .location-map{height:260px}
 }
+
+.gis-filters{display:grid;gap:8px}
+.gis-filter-grid{display:grid;grid-template-columns:2fr repeat(3,minmax(150px,1fr));gap:12px}
+.gis-filter-grid .field{margin-bottom:0}
+.gis-below-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr);gap:14px}
+.gis-incident-list{display:grid;gap:8px;max-height:420px;overflow:auto}
+.gis-incident-row{width:100%;display:grid;gap:4px;text-align:left;border:1px solid #e2e8f0;background:#fff;border-radius:12px;padding:10px;cursor:pointer;color:#0f172a}
+.gis-incident-row:hover,.gis-incident-row.active{border-color:#0ea5e9;background:#f0f9ff}
+.gis-incident-title{font-weight:800}
+.gis-detail p{margin:8px 0}
+.admin-profile-card{margin-bottom:16px}
+.admin-profile-list{display:grid;gap:10px}
+.admin-profile-row{display:grid;grid-template-columns:1.2fr 1fr 1.2fr auto;gap:10px;align-items:end;padding:12px;border:1px solid #e2e8f0;border-radius:14px}
+.admin-profile-row .field{margin-bottom:0}
+@media(max-width:900px){
+  .gis-filter-grid{grid-template-columns:1fr 1fr}
+  .gis-below-grid{grid-template-columns:1fr}
+  .admin-profile-row{grid-template-columns:1fr 1fr}
+}
+@media(max-width:520px){
+  .gis-filter-grid{grid-template-columns:1fr}
+  .admin-profile-row{grid-template-columns:1fr}
+  .gis-live-map{height:380px}
+}
