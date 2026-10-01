@@ -193,13 +193,20 @@ export default function GISDashboard({ userId, canWrite }: Props) {
     layer.clearLayers();
 
     areas.filter((a) => a.active).forEach((a) => {
+      const color = severityColor[a.severity] || severityColor.MEDIUM;
       const geoLayer = L.geoJSON(a.geojson as GeoJSON.GeoJsonObject, {
         style: {
-          weight: a.severity === 'HIGH' ? 4 : 2,
-          fillOpacity: a.severity === 'HIGH' ? 0.25 : 0.15,
+          color,
+          fillColor: color,
+          weight: a.severity === 'HIGH' ? 4 : 3,
+          fillOpacity: a.severity === 'HIGH' ? 0.28 : 0.18,
         },
       });
-      geoLayer.bindPopup(`<b>พื้นที่ฉุกเฉิน: ${a.title}</b><br>${a.kind}<br>ระดับ: ${a.severity}`);
+      geoLayer.bindPopup(
+        `<b>พื้นที่ฉุกเฉิน: ${a.title}</b><br>
+        ประเภท: ${a.kind}<br>
+        ความรุนแรง: <b style="color:${color}">${severityLabel[a.severity] || a.severity}</b>`,
+      );
       geoLayer.addTo(layer);
     });
   }, [areas]);
