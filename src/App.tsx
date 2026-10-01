@@ -21,7 +21,9 @@ export default function App(){
  const [items,setItems]=useState<Incident[]>(demoSeed);
  const [message,setMessage]=useState('');
  const [tracking,setTracking]=useState('');
+ const [phoneLast4,setPhoneLast4]=useState('');
  const [found,setFound]=useState<Incident|null>(null);
+ const [trackMessage,setTrackMessage]=useState('');
  const demo=!supabaseConfigured || import.meta.env.VITE_DEMO_MODE==='true';
 
  async function submit(e:FormEvent<HTMLFormElement>){
@@ -36,23 +38,34 @@ export default function App(){
    reporter_name:String(f.get('name')||''),
    reporter_phone:String(f.get('phone')||''),
    urgency:String(f.get('urgency')||'MEDIUM'),
-   status:'RECEIVED'
   };
   if(!payload.title||!payload.description||!payload.village){setMessage('กรุณากรอกข้อมูลที่จำเป็นให้ครบ');return}
   if(demo||!supabase){
    const incident:Incident={...payload,id:crypto.randomUUID(),tracking_no:makeTracking(),created_at:new Date().toISOString()};
    setItems(x=>[incident,...x]); setMessage('ส่งเรื่องสำเร็จ เลขติดตาม: '+incident.tracking_no); e.currentTarget.reset(); return;
   }
-  const {data,error}=await supabase.from('municipal_incidents').insert(payload).select('tracking_no').single();
-  if(error){setMessage('ส่งเรื่องไม่สำเร็จ: '+error.message);return}
-  setMessage('ส่งเรื่องสำเร็จ เลขติดตาม: '+data.tracking_no); e.currentTarget.reset();
+  const {data,error}=await supabase.rpc('submit_incident',{
+   p_category:payload.category,
+   p_title:payload.title,
+   p_description:payload.description,
+   p_village:payload.village,
+   p_house_number:payload.house_number||null,
+   p_reporter_name:payload.reporter_name||null,
+   p_reporter_phone:payload.reporter_phone||null,
+   p_urgency:payload.urgency
+  });
+  if(error){setMessage('ส่งเรื่องไม่สำเร็จ กรุณาตรวจสอบข้อมูลแล้วลองใหม่');return}
+  const trackingNo=data?.[0]?.tracking_no;
+  setMessage(trackingNo?'ส่งเรื่องสำเร็จ เลขติดตาม: '+trackingNo:'ส่งเรื่องสำเร็จ'); e.currentTarget.reset();
  }
 
  async function doTrack(){
-  setFound(null);
-  if(demo||!supabase){setFound(items.find(x=>x.tracking_no.toUpperCase()===tracking.trim().toUpperCase())||null);return}
-  const {data}=await supabase.rpc('track_incident',{p_tracking_no:tracking.trim(),p_phone_last4:''});
-  setFound(data?.[0]||null);
+  setFound(null); setTrackMessage('');
+  if(!tracking.trim()){setTrackMessage('กรุณากรอกเลขติดตาม');return}
+  if(demo||!supabase){const item=items.find(x=>x.tracking_no.toUpperCase()===tracking.trim().toUpperCase())||null; setFound(item); if(!item)setTrackMessage('ไม่พบรายการ กรุณาตรวจสอบเลขติดตาม'); return}
+  const {data,error}=await supabase.rpc('track_incident',{p_tracking_no:tracking.trim(),p_phone_last4:phoneLast4.trim()});
+  if(error){setTrackMessage('ไม่สามารถตรวจสอบสถานะได้ในขณะนี้');return}
+  const item=data?.[0]||null; setFound(item); if(!item)setTrackMessage('ไม่พบรายการ หรือ 4 หลักท้ายของเบอร์โทรไม่ตรง');
  }
 
  const stats=useMemo(()=>({
@@ -99,9 +112,10 @@ export default function App(){
    </>}
 
    {page==='track'&&<section className="card">
-    <h2>ติดตามเรื่อง</h2><p className="muted">กรอกเลขติดตามที่ได้รับหลังแจ้งเหตุ</p>
-    <div className="row"><input style={{flex:1,minWidth:250,padding:12,borderRadius:12,border:'1px solid #cbd5e1'}} value={tracking} onChange={e=>setTracking(e.target.value)} placeholder="BLM-2569-..." /><button className="btn primary" onClick={doTrack}>ค้นหา</button></div>
-    {found?<div className="item" style={{marginTop:16}}><b>{found.title}</b><p>{found.tracking_no}</p><span className="status">{labels[found.status]||found.status}</span><p>พื้นที่: {found.village}</p><p>{found.public_note||'ยังไม่มีข้อความอัปเดต'}</p></div>:tracking&&<p className="muted">หากไม่พบข้อมูล ให้ตรวจสอบเลขติดตามอีกครั้ง</p>}
+    <h2>ติดตามเรื่อง</h2><p className="muted">กรอกเลขติดตาม และหากตอนแจ้งเหตุใส่เบอร์โทร ให้กรอก 4 หลักท้ายด้วย</p>
+    <div className="row"><input style={{flex:2,minWidth:250,padding:12,borderRadius:12,border:'1px solid #cbd5e1'}} value={tracking} onChange={e=>setTracking(e.target.value)} placeholder="BLM-2569-..." /><input style={{width:160,padding:12,borderRadius:12,border:'1px solid #cbd5e1'}} value={phoneLast4} onChange={e=>setPhoneLast4(e.target.value.replace(/\\D/g,'').slice(0,4))} inputMode="numeric" placeholder="4 หลักท้าย" /><button className="btn primary" onClick={doTrack}>ค้นหา</button></div>
+    {trackMessage&&<p className="muted">{trackMessage}</p>}
+    {found&&<div className="item" style={{marginTop:16}}><b>{found.title}</b><p>{found.tracking_no}</p><span className="status">{labels[found.status]||found.status}</span><p>พื้นที่: {found.village}</p><p>{found.public_note||'ยังไม่มีข้อความอัปเดต'}</p></div>}
    </section>}
 
    {page==='staff'&&<>
@@ -114,6 +128,6 @@ export default function App(){
     <div className="grid"><div className="card"><div className="muted">เรื่องทั้งหมด</div><div className="kpi">{stats.all}</div></div><div className="card"><div className="muted">กำลังดำเนินการ</div><div className="kpi">{stats.active}</div></div><div className="card"><div className="muted">ดำเนินการแล้ว</div><div className="kpi">{stats.done}</div></div></div>
    </>}
   </main>
-  <footer className="footer">Bo Luang Municipal Web · R2 Core Prototype</footer>
+  <footer className="footer">Bo Luang Municipal Web · R2 Supabase Connected</footer>
  </div>
 }
