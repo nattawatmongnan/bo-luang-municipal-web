@@ -79,11 +79,41 @@ $$;
 revoke all on function private.consume_api_rate_limit(text,integer,integer)
 from public, anon, authenticated;
 
--- submit_incident and track_incident are intentionally public anonymous RPCs.
--- Their current deployed definitions call private.consume_api_rate_limit:
+-- Public citizen traffic is routed through the Supabase Edge Function "public-api".
+-- Direct browser execution of submit_incident / track_incident is revoked.
+-- The live functions still call private.consume_api_rate_limit:
 -- submit: 5 requests / 10 minutes per forwarded client IP
 -- track: 30 requests / 10 minutes per forwarded client IP
--- Keep full current definitions synchronized with the live database before applying this file elsewhere.
+
+create or replace function public.consume_public_upload_rate_limit()
+returns boolean
+language sql
+security definer
+set search_path=public,private
+as $
+  select private.consume_api_rate_limit('upload_evidence', 5, 600);
+$;
+
+revoke all on function public.consume_public_upload_rate_limit()
+from public, anon, authenticated;
+grant execute on function public.consume_public_upload_rate_limit()
+to service_role;
+
+revoke execute on function public.submit_incident(
+  text,text,text,text,text,text,text,text,text,double precision,double precision,double precision,boolean
+) from public, anon, authenticated;
+
+revoke execute on function public.track_incident(text,text)
+from public, anon, authenticated;
+
+grant execute on function public.submit_incident(
+  text,text,text,text,text,text,text,text,text,double precision,double precision,double precision,boolean
+) to service_role;
+
+grant execute on function public.track_incident(text,text)
+to service_role;
+
+drop policy if exists incident_attachments_submit_upload on storage.objects;
 
 create or replace function public.update_incident_status(
   p_incident_id uuid,
