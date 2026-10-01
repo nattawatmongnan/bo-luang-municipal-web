@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'bo-luang-shell-v1';
+const CACHE_VERSION = 'bo-luang-shell-v3';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/icons/bo-luang-icon.svg', '/icons/bo-luang-maskable.svg'];
 
 self.addEventListener('install', (event) => {
