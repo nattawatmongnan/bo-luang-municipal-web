@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from './lib/supabase';
+import LocationPicker from './LocationPicker';
 
 type Page = 'citizen' | 'track' | 'staff' | 'executive';
 type AppRole = 'citizen' | 'staff' | 'department' | 'executive' | 'admin';
@@ -89,6 +90,8 @@ export default function App() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
   const [gpsMessage, setGpsMessage] = useState('');
 
   const demo = !supabaseConfigured || import.meta.env.VITE_DEMO_MODE === 'true';
@@ -257,7 +260,9 @@ export default function App() {
       (position) => {
         setLat(position.coords.latitude);
         setLng(position.coords.longitude);
-        setGpsMessage('บันทึกตำแหน่งแล้ว');
+        setLocationAccuracy(position.coords.accuracy);
+        setLocationConfirmed(false);
+        setGpsMessage('พบตำแหน่งแล้ว กรุณาตรวจสอบหมุดบนแผนที่และกดยืนยัน');
       },
       () => setGpsMessage('ไม่สามารถอ่านตำแหน่งได้ กรุณาอนุญาต Location ในเบราว์เซอร์'),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
@@ -281,6 +286,11 @@ export default function App() {
 
     if (!payload.title || !payload.description || !payload.village) {
       setMessage('กรุณากรอกข้อมูลที่จำเป็นให้ครบ');
+      return;
+    }
+
+    if (lat !== null && lng !== null && !locationConfirmed) {
+      setMessage('กรุณากดยืนยันตำแหน่งบนแผนที่ก่อนส่งเรื่อง');
       return;
     }
 
@@ -346,6 +356,8 @@ export default function App() {
       p_photo_path: photoPath,
       p_lat: lat,
       p_lng: lng,
+      p_accuracy_m: locationAccuracy,
+      p_location_confirmed: locationConfirmed,
     });
 
     if (error) {
@@ -359,6 +371,8 @@ export default function App() {
     setPhotoFile(null);
     setLat(null);
     setLng(null);
+    setLocationAccuracy(null);
+    setLocationConfirmed(false);
     setGpsMessage('');
   }
 
@@ -511,10 +525,54 @@ export default function App() {
                         📍 ใช้ตำแหน่งปัจจุบัน
                       </button>
                       {lat !== null && lng !== null && (
-                        <span className="muted">{lat.toFixed(6)}, {lng.toFixed(6)}</span>
+                        <span className="muted">
+                          {lat.toFixed(6)}, {lng.toFixed(6)}
+                          {locationAccuracy !== null ? ` · ความแม่นยำประมาณ ±${Math.round(locationAccuracy)} ม.` : ''}
+                        </span>
                       )}
                     </div>
                     {gpsMessage && <span className="muted">{gpsMessage}</span>}
+
+                    {lat !== null && lng !== null && (
+                      <div className="location-picker-wrap">
+                        <LocationPicker
+                          lat={lat}
+                          lng={lng}
+                          accuracy={locationAccuracy}
+                          onChange={(nextLat, nextLng) => {
+                            setLat(nextLat);
+                            setLng(nextLng);
+                            setLocationConfirmed(false);
+                            setGpsMessage('มีการแก้ตำแหน่ง กรุณากดยืนยันอีกครั้ง');
+                          }}
+                        />
+                        <div className="row location-confirm-row">
+                          <button
+                            className={`btn ${locationConfirmed ? 'secondary' : 'primary'}`}
+                            type="button"
+                            onClick={() => {
+                              setLocationConfirmed(true);
+                              setGpsMessage('ยืนยันตำแหน่งแล้ว พร้อมส่งเข้า GIS/QGIS');
+                            }}
+                          >
+                            {locationConfirmed ? '✓ ยืนยันตำแหน่งแล้ว' : 'ยืนยันตำแหน่งนี้'}
+                          </button>
+                          <button
+                            className="btn secondary"
+                            type="button"
+                            onClick={() => {
+                              setLat(null);
+                              setLng(null);
+                              setLocationAccuracy(null);
+                              setLocationConfirmed(false);
+                              setGpsMessage('ล้างตำแหน่งแล้ว');
+                            }}
+                          >
+                            ล้างตำแหน่ง
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <label className="field">
