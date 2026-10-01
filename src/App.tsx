@@ -1,9 +1,11 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from './lib/supabase';
-import LocationPicker from './LocationPicker';
 import { isInsideBoLuang } from './boLuangBoundary';
-import GISDashboard from './GISDashboard';
+import PWAInstall from './PWAInstall';
+
+const LocationPicker = lazy(() => import('./LocationPicker'));
+const GISDashboard = lazy(() => import('./GISDashboard'));
 
 type Page = 'citizen' | 'track' | 'staff' | 'gis' | 'executive';
 type AppRole = 'citizen' | 'staff' | 'department' | 'executive' | 'admin';
@@ -559,21 +561,23 @@ export default function App() {
 
                     {lat !== null && lng !== null && (
                       <div className="location-picker-wrap">
-                        <LocationPicker
-                          lat={lat}
-                          lng={lng}
-                          accuracy={locationAccuracy}
-                          onChange={(nextLat, nextLng) => {
-                            setLat(nextLat);
-                            setLng(nextLng);
-                            setLocationConfirmed(false);
-                            setGpsMessage('มีการแก้ตำแหน่งในเขตเทศบาล กรุณากดยืนยันอีกครั้ง');
-                          }}
-                          onOutside={() => {
-                            setLocationConfirmed(false);
-                            setGpsMessage('เลือกไม่ได้: จุดนี้อยู่นอกเขตเทศบาลตำบลบ่อหลวง');
-                          }}
-                        />
+                        <Suspense fallback={<div className="map-loading">กำลังโหลดแผนที่...</div>}>
+                          <LocationPicker
+                            lat={lat}
+                            lng={lng}
+                            accuracy={locationAccuracy}
+                            onChange={(nextLat, nextLng) => {
+                              setLat(nextLat);
+                              setLng(nextLng);
+                              setLocationConfirmed(false);
+                              setGpsMessage('มีการแก้ตำแหน่งในเขตเทศบาล กรุณากดยืนยันอีกครั้ง');
+                            }}
+                            onOutside={() => {
+                              setLocationConfirmed(false);
+                              setGpsMessage('เลือกไม่ได้: จุดนี้อยู่นอกเขตเทศบาลตำบลบ่อหลวง');
+                            }}
+                          />
+                        </Suspense>
                         <div className="row location-confirm-row">
                           <button
                             className={`btn ${locationConfirmed ? 'secondary' : 'primary'}`}
@@ -832,7 +836,9 @@ export default function App() {
                   <h1>GIS Live · ศูนย์เหตุการณ์</h1>
                   <p>หมุดเหตุและพื้นที่ฉุกเฉินจะอัปเดตจาก Supabase Realtime โดยอัตโนมัติ</p>
                 </section>
-                <GISDashboard userId={session.user.id} canWrite={canWrite} />
+                <Suspense fallback={<div className="card map-loading">กำลังโหลด GIS Live...</div>}>
+                  <GISDashboard userId={session.user.id} canWrite={canWrite} />
+                </Suspense>
               </>
             )}
 
@@ -880,7 +886,10 @@ export default function App() {
         )}
       </main>
 
-      <footer className="footer">Bo Luang Municipal Web · R2 Auth + Supabase</footer>
+      <footer className="footer">
+        <PWAInstall />
+        <span>Bo Luang Municipal Web · PWA + Supabase Realtime + PostGIS</span>
+      </footer>
     </div>
   );
 }
