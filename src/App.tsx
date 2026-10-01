@@ -407,27 +407,32 @@ export default function App() {
 
     try {
       if (photoFile) {
-        const extension =
-          photoFile.type === 'image/png'
-            ? 'png'
-            : photoFile.type === 'image/webp'
-              ? 'webp'
-              : 'jpg';
-        photoPath = `public-submissions/${crypto.randomUUID()}.${extension}`;
+        const uploadBody = new FormData();
+        uploadBody.append('action', 'upload');
+        uploadBody.append('file', photoFile);
 
-        const { error: uploadError } = await supabase.storage
-          .from('incident-attachments')
-          .upload(photoPath, photoFile, {
-            contentType: photoFile.type,
-            upsert: false,
+        const { data: uploadData, error: uploadError } = await supabase.functions.invoke('public-api', {
+          body: uploadBody,
+        });
+
+        if (uploadError || !uploadData?.ok || !uploadData?.result?.path) {
+          const uploadCode = uploadData?.code;
+          setFormErrors({
+            photo:
+              uploadCode === 'RATE_LIMITED'
+                ? 'อัปโหลดรูปบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่'
+                : uploadCode === 'FILE_TOO_LARGE'
+                  ? 'รูปต้องมีขนาดไม่เกิน 5 MB'
+                  : uploadCode === 'INVALID_FILE_TYPE'
+                    ? 'รองรับเฉพาะรูป JPG, PNG หรือ WebP'
+                    : 'อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่',
           });
-
-        if (uploadError) {
-          setFormErrors({ photo: 'อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่' });
           setMessage('อัปโหลดรูปไม่สำเร็จ ข้อมูลในฟอร์มยังอยู่ครบ');
           focusProblem('photo-input');
           return;
         }
+
+        photoPath = uploadData.result.path;
       }
 
       const { data, error } = await supabase.functions.invoke('public-api', {
