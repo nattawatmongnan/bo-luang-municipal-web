@@ -6,8 +6,8 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_DEMO_MODE
-        value: "true"
+        value: "false"
       - key: VITE_SUPABASE_URL
-        sync: false
-      - key: VITE_SUPABASE_ANON_KEY
-        sync: false
+        value: "https://emfjpppexfiiwrrgmnvo.supabase.co"
+      - key: VITE_SUPABASE_PUBLISHABLE_KEY
+        value: "sb_publishable_bYJBdPpmn6184y9fvrLMXg_aBwrNPpI"
