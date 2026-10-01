@@ -48,3 +48,52 @@
 .footer-brand img{width:28px;height:28px;object-fit:contain}
 .location-instruction{margin:0 0 4px;line-height:1.55}
 .btn:disabled{opacity:.5;cursor:not-allowed}
+
+html{scroll-padding-top:150px}
+button,input,select,textarea{min-height:44px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid #0ea5e9;outline-offset:3px}
+.field input[aria-invalid="true"],.field select[aria-invalid="true"],.field textarea[aria-invalid="true"]{border-color:#dc2626;background:#fff7f7}
+.field-error{display:block;color:#b91c1c;font-size:.9rem;font-weight:700;line-height:1.4}
+.field,.location-picker-wrap,#manual-location-picker,#photo-input,#tracking-input,#tracking-phone-input{scroll-margin-top:160px}
+.privacy-note{margin:14px 0;padding:12px 14px;border-radius:14px;background:#f0fdfa;border:1px solid #99f6e4;color:#134e4a;line-height:1.55;font-size:.92rem}
+.submit-button{min-width:180px}
+.tracking-success{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+.tracking-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
+.track-form{display:grid;grid-template-columns:minmax(0,2fr) minmax(180px,1fr) auto;gap:12px;align-items:end}
+.track-form .field{margin-bottom:0}
+.track-message{margin-top:14px}
+.location-state{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font-size:.9rem;font-weight:700}
+.location-state.selected{background:#fff7ed;color:#9a3412}
+.location-state.confirmed{background:#ecfdf5;color:#065f46}
+.map-frame{position:relative}
+.map-overlay{position:absolute;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;gap:10px;flex-direction:column;padding:20px;background:#f8fafce8;border-radius:16px;text-align:center}
+.map-error{color:#991b1b}
+.boundary-note{margin-top:8px;padding:9px 11px;border-left:4px solid #f59e0b;background:#fffbeb;color:#78350f;font-size:.82rem;line-height:1.45}
+.pwa-installed{font-weight:700;color:#065f46}
+.pwa-install-status{font-size:.86rem;color:#475569}
+.access-gate{max-width:620px;margin:0 auto;text-align:center}
+.citizen-form-card{grid-column:span 2}
+.footer{display:flex;flex-direction:column;align-items:center;gap:10px}
+
+@media(max-width:850px){
+  .citizen-form-card{grid-column:auto}
+  .track-form{grid-template-columns:1fr}
+  .track-form .btn{width:100%}
+}
+@media(max-width:390px){
+  .wrap{padding-left:10px;padding-right:10px}
+  .top{padding-left:10px;padding-right:10px}
+  .card,.hero{padding:14px;border-radius:16px}
+  .row{gap:8px}
+  .btn{width:100%}
+  .location-confirm-row .btn{width:100%}
+  .brand-logo{width:46px;height:46px}
+  .brand{font-size:16px}
+  .sub{font-size:11px}
+}
+@media(max-width:320px){
+  .wrap{padding-left:8px;padding-right:8px}
+  .card,.hero{padding:12px}
+  .nav button{padding:8px 10px}
+  .location-map{height:260px}
+}
