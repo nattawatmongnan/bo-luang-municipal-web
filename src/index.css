@@ -15,3 +15,12 @@
 .gis-area-editor{margin:0}
 .gis-live-map{height:560px;width:100%;border:1px solid #cbd5e1;border-radius:16px;overflow:hidden;background:#e2e8f0}
 @media (max-width:640px){.gis-live-map{height:420px}.gis-toolbar{align-items:flex-start}}
+
+.pwa-install{display:inline-flex;flex-direction:column;gap:8px;align-items:center}
+.pwa-install-help{max-width:320px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;color:#334155;font-size:.9rem;line-height:1.45}
+.map-loading{min-height:96px;display:grid;place-items:center;color:#64748b}
+@media (max-width:640px){
+  .pwa-install{width:100%}
+  .pwa-install .btn{width:100%;min-height:46px}
+  .footer{gap:10px}
+}
