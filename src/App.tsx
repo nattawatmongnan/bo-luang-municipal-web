@@ -430,28 +430,41 @@ export default function App() {
         }
       }
 
-      const { data, error } = await supabase.rpc('submit_incident', {
-        p_category: payload.category,
-        p_title: payload.title,
-        p_description: payload.description,
-        p_village: payload.village,
-        p_house_number: payload.house_number || null,
-        p_reporter_name: payload.reporter_name || null,
-        p_reporter_phone: payload.reporter_phone || null,
-        p_urgency: payload.urgency,
-        p_photo_path: photoPath,
-        p_lat: lat,
-        p_lng: lng,
-        p_accuracy_m: null,
-        p_location_confirmed: true,
+      const { data, error } = await supabase.functions.invoke('public-api', {
+        body: {
+          action: 'submit',
+          payload: {
+            category: payload.category,
+            title: payload.title,
+            description: payload.description,
+            village: payload.village,
+            house_number: payload.house_number || null,
+            reporter_name: payload.reporter_name || null,
+            reporter_phone: payload.reporter_phone || null,
+            urgency: payload.urgency,
+            photo_path: photoPath,
+            lat,
+            lng,
+            location_confirmed: true,
+          },
+        },
       });
 
       if (error) {
-        if (error.message?.includes('RATE_LIMITED')) {
+        setMessage('เชื่อมต่อระบบรับเรื่องไม่สำเร็จ ข้อมูลในฟอร์มยังอยู่ครบ กรุณาลองใหม่');
+        return;
+      }
+
+      if (!data?.ok) {
+        if (data?.code === 'RATE_LIMITED') {
           setMessage('ส่งเรื่องบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่');
-        } else if (error.message?.includes('OUTSIDE_BOLUANG')) {
+        } else if (data?.code === 'OUTSIDE_BOLUANG') {
           setFormErrors({ location: 'จุดที่เลือกอยู่นอกขอบเขตที่เซิร์ฟเวอร์อนุญาต' });
           setMessage('ไม่สามารถส่งเรื่องได้ กรุณาตรวจสอบตำแหน่ง');
+          focusProblem('manual-location-picker');
+        } else if (data?.code === 'LOCATION_NOT_CONFIRMED') {
+          setFormErrors({ location: 'กรุณายืนยันตำแหน่งก่อนส่งเรื่อง' });
+          setMessage('ยังไม่ได้ยืนยันตำแหน่ง');
           focusProblem('manual-location-picker');
         } else {
           setMessage('ส่งเรื่องไม่สำเร็จ ข้อมูลในฟอร์มยังอยู่ครบ กรุณาลองใหม่');
@@ -459,7 +472,7 @@ export default function App() {
         return;
       }
 
-      const trackingNo = data?.[0]?.tracking_no;
+      const trackingNo = data?.result?.tracking_no;
       if (!trackingNo) {
         setMessage('บันทึกข้อมูลแล้วแต่ไม่ได้รับเลขติดตามกลับมา กรุณาแจ้งผู้ดูแลระบบก่อนส่งซ้ำ');
         return;
@@ -513,25 +526,31 @@ export default function App() {
     setTrackMessage('กำลังค้นหา…');
 
     try {
-      const { data, error } = await supabase.rpc('track_incident', {
-        p_tracking_no: trackingNo,
-        p_phone_last4: last4,
+      const { data, error } = await supabase.functions.invoke('public-api', {
+        body: {
+          action: 'track',
+          payload: {
+            tracking_no: trackingNo,
+            phone_last4: last4,
+          },
+        },
       });
 
       if (error) {
-        const raw = error.message || '';
-        const msg = raw.toLowerCase();
+        setTrackMessage('เชื่อมต่อเครือข่ายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+        return;
+      }
+
+      if (!data?.ok) {
         setTrackMessage(
-          raw.includes('RATE_LIMITED')
+          data?.code === 'RATE_LIMITED'
             ? 'ค้นหาบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่'
-            : msg.includes('fetch') || msg.includes('network')
-              ? 'เชื่อมต่อเครือข่ายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'
-              : 'ระบบติดตามขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง',
+            : 'ระบบติดตามขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง',
         );
         return;
       }
 
-      const item = data?.[0] || null;
+      const item = data?.result || null;
       setFound(item);
       setTrackMessage(
         item
