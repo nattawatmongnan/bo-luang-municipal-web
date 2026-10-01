@@ -553,7 +553,7 @@ export default function App() {
             </section>
 
             <div className="grid">
-              <section className="card" style={{ gridColumn: 'span 2' }}>
+              <section className="card citizen-form-card">
                 <h2>แบบฟอร์มแจ้งเหตุ</h2>
                 <form onSubmit={submit}>
                   <div className="grid">
