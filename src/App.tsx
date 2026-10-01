@@ -87,6 +87,9 @@ export default function App() {
   const [staffLoading, setStaffLoading] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+  const [gpsMessage, setGpsMessage] = useState('');
 
   const demo = !supabaseConfigured || import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -244,6 +247,23 @@ export default function App() {
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
   }
 
+  function useCurrentLocation() {
+    if (!navigator.geolocation) {
+      setGpsMessage('อุปกรณ์นี้ไม่รองรับ GPS');
+      return;
+    }
+    setGpsMessage('กำลังค้นหาตำแหน่ง...');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLat(position.coords.latitude);
+        setLng(position.coords.longitude);
+        setGpsMessage('บันทึกตำแหน่งแล้ว');
+      },
+      () => setGpsMessage('ไม่สามารถอ่านตำแหน่งได้ กรุณาอนุญาต Location ในเบราว์เซอร์'),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
+    );
+  }
+
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMessage('');
@@ -324,6 +344,8 @@ export default function App() {
       p_reporter_phone: payload.reporter_phone || null,
       p_urgency: payload.urgency,
       p_photo_path: photoPath,
+      p_lat: lat,
+      p_lng: lng,
     });
 
     if (error) {
@@ -335,6 +357,9 @@ export default function App() {
     setMessage(trackingNo ? 'ส่งเรื่องสำเร็จ เลขติดตาม: ' + trackingNo : 'ส่งเรื่องสำเร็จ');
     e.currentTarget.reset();
     setPhotoFile(null);
+    setLat(null);
+    setLng(null);
+    setGpsMessage('');
   }
 
   async function doTrack() {
@@ -479,6 +504,19 @@ export default function App() {
                     </label>
                   </div>
 
+                  <div className="field">
+                    <span>พิกัด GIS (ถ้ามี)</span>
+                    <div className="row">
+                      <button className="btn secondary" type="button" onClick={useCurrentLocation}>
+                        📍 ใช้ตำแหน่งปัจจุบัน
+                      </button>
+                      {lat !== null && lng !== null && (
+                        <span className="muted">{lat.toFixed(6)}, {lng.toFixed(6)}</span>
+                      )}
+                    </div>
+                    {gpsMessage && <span className="muted">{gpsMessage}</span>}
+                  </div>
+
                   <label className="field">
                     รูปหลักฐาน (ถ้ามี)
                     <input
@@ -507,7 +545,7 @@ export default function App() {
                     className="item service-button"
                     type="button"
                     onClick={() => {
-                      document.getElementById('village-input')?.focus();
+                      useCurrentLocation();
                       document.getElementById('village-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }}
                   >
