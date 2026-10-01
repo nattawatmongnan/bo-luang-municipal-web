@@ -3,8 +3,9 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import LocationPicker from './LocationPicker';
 import { isInsideBoLuang } from './boLuangBoundary';
+import GISDashboard from './GISDashboard';
 
-type Page = 'citizen' | 'track' | 'staff' | 'executive';
+type Page = 'citizen' | 'track' | 'staff' | 'gis' | 'executive';
 type AppRole = 'citizen' | 'staff' | 'department' | 'executive' | 'admin';
 
 type Profile = {
@@ -456,6 +457,7 @@ export default function App() {
               ['citizen', 'ประชาชน'],
               ['track', 'ติดตามเรื่อง'],
               ['staff', 'เจ้าหน้าที่'],
+              ['gis', 'GIS Live'],
               ['executive', 'ผู้บริหาร'],
             ] as [Page, string][]).map(([p, l]) => (
               <button className={page === p ? 'active' : ''} onClick={() => setPage(p)} key={p}>
@@ -804,6 +806,38 @@ export default function App() {
                   </div>
                 )}
               </>
+            )}
+          </>
+        )}
+
+        {page === 'gis' && (
+          <>
+            {!demo && !session && (
+              <section className="card">
+                <h2>กรุณาเข้าสู่ระบบจากหน้า “เจ้าหน้าที่” ก่อน</h2>
+                <p className="muted">GIS Live สำหรับเจ้าหน้าที่และผู้บริหารเทศบาล</p>
+              </section>
+            )}
+
+            {demo && (
+              <section className="card">
+                <h2>GIS Live ต้องเชื่อม Supabase จริง</h2>
+                <p className="muted">ปิด Demo mode เพื่อดูข้อมูล Realtime</p>
+              </section>
+            )}
+
+            {!demo && session && canViewStaff && (
+              <>
+                <section className="hero">
+                  <h1>GIS Live · ศูนย์เหตุการณ์</h1>
+                  <p>หมุดเหตุและพื้นที่ฉุกเฉินจะอัปเดตจาก Supabase Realtime โดยอัตโนมัติ</p>
+                </section>
+                <GISDashboard userId={session.user.id} canWrite={canWrite} />
+              </>
+            )}
+
+            {!demo && session && !canViewStaff && (
+              <div className="notice">บัญชีนี้ไม่มีสิทธิ์เปิด GIS Live</div>
             )}
           </>
         )}
