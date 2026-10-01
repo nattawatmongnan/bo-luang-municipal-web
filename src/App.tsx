@@ -84,6 +84,11 @@ export default function App() {
   const [phoneLast4, setPhoneLast4] = useState('');
   const [found, setFound] = useState<Incident | null>(null);
   const [trackMessage, setTrackMessage] = useState('');
+  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [lastTrackingNo, setLastTrackingNo] = useState('');
+  const [copyStatus, setCopyStatus] = useState('');
 
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -257,15 +262,38 @@ export default function App() {
   function openManualLocationPicker() {
     setMapPickerOpen(true);
     setLocationConfirmed(false);
-    setGpsMessage('กรอกข้อมูลสถานที่ด้านบน แล้วแตะบนแผนที่เพื่อปักหมุดจุดเกิดเหตุ');
+    setGpsMessage('แตะบนแผนที่เพื่อปักหมุดจุดเกิดเหตุ แล้วกดยืนยันตำแหน่ง');
     window.setTimeout(() => {
       document.getElementById('manual-location-picker')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 80);
   }
 
+  function focusProblem(id: string) {
+    window.setTimeout(() => {
+      const element = document.getElementById(id) as HTMLElement | null;
+      element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element?.focus();
+    }, 0);
+  }
+
+  async function copyTrackingNumber() {
+    if (!lastTrackingNo) return;
+    try {
+      await navigator.clipboard.writeText(lastTrackingNo);
+      setCopyStatus('คัดลอกเลขติดตามแล้ว');
+    } catch {
+      setCopyStatus('คัดลอกอัตโนมัติไม่ได้ กรุณาเลือกเลขแล้วคัดลอกเอง');
+    }
+  }
+
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitting) return;
+
     setMessage('');
+    setLastTrackingNo('');
+    setCopyStatus('');
+
     const f = new FormData(e.currentTarget);
     const payload = {
       category: String(f.get('category') || 'อื่นๆ'),
@@ -278,142 +306,191 @@ export default function App() {
       urgency: String(f.get('urgency') || 'MEDIUM'),
     };
 
-    if (!payload.title || !payload.description || !payload.village) {
-      setMessage('กรุณากรอกข้อมูลที่จำเป็นให้ครบ');
-      return;
+    const errors: Record<string, string> = {};
+    if (!payload.village) errors.village = 'กรุณาเลือกหมู่บ้าน/หมู่ที่';
+    if (payload.title.length < 3) errors.title = 'หัวข้อต้องมีอย่างน้อย 3 ตัวอักษร';
+    if (payload.description.length < 3) errors.description = 'รายละเอียดต้องมีอย่างน้อย 3 ตัวอักษร';
+
+    const phoneDigits = payload.reporter_phone.replace(/\D/g, '');
+    if (payload.reporter_phone && (phoneDigits.length < 9 || phoneDigits.length > 10)) {
+      errors.phone = 'กรุณากรอกเบอร์โทรเต็ม 9–10 หลัก หรือเว้นว่าง';
     }
 
     if (lat === null || lng === null) {
-      setMessage('กรุณาปักหมุดจุดเกิดเหตุบนแผนที่ก่อนส่งเรื่อง');
-      setMapPickerOpen(true);
-      return;
-    }
-
-    if (!isInsideBoLuang(lat, lng)) {
-      setMessage('พิกัดอยู่นอกเขตเทศบาลตำบลบ่อหลวง');
-      return;
-    }
-
-    if (!locationConfirmed) {
-      setMessage('กรุณากดยืนยันหมุดตำแหน่งก่อนส่งเรื่อง');
-      return;
+      errors.location = 'กรุณาปักหมุดจุดเกิดเหตุบนแผนที่';
+    } else if (!isInsideBoLuang(lat, lng)) {
+      errors.location = 'จุดที่เลือกอยู่นอกขอบเขตอ้างอิงของระบบ';
+    } else if (!locationConfirmed) {
+      errors.location = 'เลือกหมุดแล้ว แต่ยังไม่ได้กดยืนยันตำแหน่ง';
     }
 
     if (photoFile) {
       const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
       if (!allowedTypes.includes(photoFile.type)) {
-        setMessage('รองรับเฉพาะรูป JPG, PNG หรือ WebP');
-        return;
+        errors.photo = 'รองรับเฉพาะรูป JPG, PNG หรือ WebP';
+      } else if (photoFile.size > 5 * 1024 * 1024) {
+        errors.photo = 'รูปต้องมีขนาดไม่เกิน 5 MB';
       }
-      if (photoFile.size > 5 * 1024 * 1024) {
-        setMessage('รูปต้องมีขนาดไม่เกิน 5 MB');
-        return;
-      }
+    }
+
+    setFormErrors(errors);
+
+    const firstProblem =
+      errors.village ? 'village-input' :
+      errors.title ? 'title-input' :
+      errors.description ? 'description-input' :
+      errors.phone ? 'phone-input' :
+      errors.location ? 'manual-location-picker' :
+      errors.photo ? 'photo-input' : '';
+
+    if (firstProblem) {
+      if (errors.location) setMapPickerOpen(true);
+      setMessage('กรุณาตรวจสอบข้อมูลที่ระบุไว้ในแบบฟอร์ม');
+      focusProblem(firstProblem);
+      return;
     }
 
     if (demo || !supabase) {
-      const incident: Incident = {
-        ...payload,
-        id: crypto.randomUUID(),
-        tracking_no: makeTracking(),
-        status: 'RECEIVED',
-        created_at: new Date().toISOString(),
-      };
-      setItems((x) => [incident, ...x]);
-      setMessage('ส่งเรื่องสำเร็จ เลขติดตาม: ' + incident.tracking_no);
-      e.currentTarget.reset();
+      setMessage('ขณะนี้เป็นโหมดสาธิต จึงยังไม่บันทึกเรื่องและไม่สร้างเลขติดตามจริง');
       return;
     }
 
+    setSubmitting(true);
     let photoPath: string | null = null;
 
-    if (photoFile) {
-      const extension =
-        photoFile.type === 'image/png'
-          ? 'png'
-          : photoFile.type === 'image/webp'
-            ? 'webp'
-            : 'jpg';
-      photoPath = `public-submissions/${crypto.randomUUID()}.${extension}`;
+    try {
+      if (photoFile) {
+        const extension =
+          photoFile.type === 'image/png'
+            ? 'png'
+            : photoFile.type === 'image/webp'
+              ? 'webp'
+              : 'jpg';
+        photoPath = `public-submissions/${crypto.randomUUID()}.${extension}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('incident-attachments')
-        .upload(photoPath, photoFile, {
-          contentType: photoFile.type,
-          upsert: false,
-        });
+        const { error: uploadError } = await supabase.storage
+          .from('incident-attachments')
+          .upload(photoPath, photoFile, {
+            contentType: photoFile.type,
+            upsert: false,
+          });
 
-      if (uploadError) {
-        setMessage('อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่');
+        if (uploadError) {
+          setFormErrors({ photo: 'อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่' });
+          setMessage('อัปโหลดรูปไม่สำเร็จ ข้อมูลในฟอร์มยังอยู่ครบ');
+          focusProblem('photo-input');
+          return;
+        }
+      }
+
+      const { data, error } = await supabase.rpc('submit_incident', {
+        p_category: payload.category,
+        p_title: payload.title,
+        p_description: payload.description,
+        p_village: payload.village,
+        p_house_number: payload.house_number || null,
+        p_reporter_name: payload.reporter_name || null,
+        p_reporter_phone: payload.reporter_phone || null,
+        p_urgency: payload.urgency,
+        p_photo_path: photoPath,
+        p_lat: lat,
+        p_lng: lng,
+        p_accuracy_m: null,
+        p_location_confirmed: true,
+      });
+
+      if (error) {
+        if (error.message?.includes('OUTSIDE_BOLUANG')) {
+          setFormErrors({ location: 'จุดที่เลือกอยู่นอกขอบเขตที่เซิร์ฟเวอร์อนุญาต' });
+          setMessage('ไม่สามารถส่งเรื่องได้ กรุณาตรวจสอบตำแหน่ง');
+          focusProblem('manual-location-picker');
+        } else {
+          setMessage('ส่งเรื่องไม่สำเร็จ ข้อมูลในฟอร์มยังอยู่ครบ กรุณาลองใหม่');
+        }
         return;
       }
-    }
 
-    const { data, error } = await supabase.rpc('submit_incident', {
-      p_category: payload.category,
-      p_title: payload.title,
-      p_description: payload.description,
-      p_village: payload.village,
-      p_house_number: payload.house_number || null,
-      p_reporter_name: payload.reporter_name || null,
-      p_reporter_phone: payload.reporter_phone || null,
-      p_urgency: payload.urgency,
-      p_photo_path: photoPath,
-      p_lat: lat,
-      p_lng: lng,
-      p_accuracy_m: null,
-      p_location_confirmed: locationConfirmed,
-    });
-
-    if (error) {
-      if (error.message?.includes('OUTSIDE_BOLUANG')) {
-        setMessage('ไม่สามารถส่งพิกัดได้: ตำแหน่งอยู่นอกเขตเทศบาลตำบลบ่อหลวง');
-      } else {
-        setMessage('ส่งเรื่องไม่สำเร็จ กรุณาตรวจสอบข้อมูลแล้วลองใหม่');
+      const trackingNo = data?.[0]?.tracking_no;
+      if (!trackingNo) {
+        setMessage('บันทึกข้อมูลแล้วแต่ไม่ได้รับเลขติดตามกลับมา กรุณาแจ้งผู้ดูแลระบบก่อนส่งซ้ำ');
+        return;
       }
-      return;
-    }
 
-    const trackingNo = data?.[0]?.tracking_no;
-    setMessage(trackingNo ? 'ส่งเรื่องสำเร็จ เลขติดตาม: ' + trackingNo : 'ส่งเรื่องสำเร็จ');
-    e.currentTarget.reset();
-    setPhotoFile(null);
-    setLat(null);
-    setLng(null);
-    setLocationConfirmed(false);
-    setMapPickerOpen(false);
-    setGpsMessage('');
+      setLastTrackingNo(trackingNo);
+      setMessage('ส่งเรื่องสำเร็จ');
+      setFormErrors({});
+      e.currentTarget.reset();
+      setPhotoFile(null);
+      setLat(null);
+      setLng(null);
+      setLocationConfirmed(false);
+      setMapPickerOpen(false);
+      setGpsMessage('');
+    } catch {
+      setMessage('เกิดข้อผิดพลาดด้านเครือข่าย ข้อมูลในฟอร์มยังอยู่ครบ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  async function doTrack() {
+  async function doTrack(e?: FormEvent<HTMLFormElement>) {
+    e?.preventDefault();
+    if (trackingLoading) return;
+
     setFound(null);
     setTrackMessage('');
 
-    if (!tracking.trim()) {
-      setTrackMessage('กรุณากรอกเลขติดตาม');
+    const trackingNo = tracking.trim();
+    const last4 = phoneLast4.trim();
+
+    if (!trackingNo) {
+      setTrackMessage('กรุณากรอกเลขติดตามเรื่อง');
+      focusProblem('tracking-input');
+      return;
+    }
+
+    if (last4 && !/^\d{4}$/.test(last4)) {
+      setTrackMessage('หากกรอกเบอร์ยืนยัน ต้องเป็นตัวเลข 4 หลัก');
+      focusProblem('tracking-phone-input');
       return;
     }
 
     if (demo || !supabase) {
-      const item = items.find((x) => x.tracking_no.toUpperCase() === tracking.trim().toUpperCase()) || null;
+      setTrackMessage('โหมดสาธิตไม่ได้เชื่อมข้อมูลติดตามจริง');
+      return;
+    }
+
+    setTrackingLoading(true);
+    setTrackMessage('กำลังค้นหา…');
+
+    try {
+      const { data, error } = await supabase.rpc('track_incident', {
+        p_tracking_no: trackingNo,
+        p_phone_last4: last4,
+      });
+
+      if (error) {
+        const msg = (error.message || '').toLowerCase();
+        setTrackMessage(
+          msg.includes('fetch') || msg.includes('network')
+            ? 'เชื่อมต่อเครือข่ายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'
+            : 'ระบบติดตามขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง',
+        );
+        return;
+      }
+
+      const item = data?.[0] || null;
       setFound(item);
-      if (!item) setTrackMessage('ไม่พบรายการ กรุณาตรวจสอบเลขติดตาม');
-      return;
+      setTrackMessage(
+        item
+          ? ''
+          : 'ไม่พบข้อมูลที่ตรงกับข้อมูลที่ใช้ยืนยัน กรุณาตรวจสอบแล้วลองใหม่',
+      );
+    } catch {
+      setTrackMessage('เชื่อมต่อเครือข่ายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+    } finally {
+      setTrackingLoading(false);
     }
-
-    const { data, error } = await supabase.rpc('track_incident', {
-      p_tracking_no: tracking.trim(),
-      p_phone_last4: phoneLast4.trim(),
-    });
-
-    if (error) {
-      setTrackMessage('ไม่สามารถตรวจสอบสถานะได้ในขณะนี้');
-      return;
-    }
-
-    const item = data?.[0] || null;
-    setFound(item);
-    if (!item) setTrackMessage('ไม่พบรายการ หรือ 4 หลักท้ายของเบอร์โทรไม่ตรง');
   }
 
   const stats = useMemo(
