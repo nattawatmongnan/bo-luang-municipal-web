@@ -84,6 +84,7 @@ export default function App() {
   const [authMessage, setAuthMessage] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [staffLoading, setStaffLoading] = useState(false);
+  const [showClosed, setShowClosed] = useState(false);
 
   const demo = !supabaseConfigured || import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -324,6 +325,8 @@ export default function App() {
 
   const canViewStaff = Boolean(profile && staffRoles.includes(profile.role));
   const canWrite = Boolean(profile && writableRoles.includes(profile.role));
+  const activeStaffItems = showClosed ? items : items.filter((item) => item.status !== 'CLOSED');
+  const closedCount = items.filter((item) => item.status === 'CLOSED').length;
 
   return (
     <div className="app">
@@ -385,7 +388,7 @@ export default function App() {
                     </label>
                     <label className="field">
                       หมู่บ้าน/หมู่ที่ *
-                      <input name="village" placeholder="เช่น หมู่ 3" />
+                      <input id="village-input" name="village" placeholder="เช่น หมู่ 3" />
                     </label>
                     <label className="field">
                       ความเร่งด่วน
@@ -435,10 +438,32 @@ export default function App() {
               <aside className="card">
                 <h3>บริการหลัก</h3>
                 <div className="list">
-                  <div className="item">📍 ระบุตำแหน่งและหมู่บ้าน</div>
-                  <div className="item">📷 รองรับหลักฐานภาพในขั้นถัดไป</div>
-                  <div className="item">🔎 ติดตามสถานะด้วยเลข BLM</div>
-                  <div className="item">🔐 แยกสิทธิ์ประชาชน/เจ้าหน้าที่/ผู้บริหาร</div>
+                  <button
+                    className="item service-button"
+                    type="button"
+                    onClick={() => {
+                      document.getElementById('village-input')?.focus();
+                      document.getElementById('village-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                  >
+                    📍 ระบุตำแหน่งและหมู่บ้าน
+                  </button>
+                  <button
+                    className="item service-button"
+                    type="button"
+                    onClick={() => {
+                      setMessage('ระบบแนบหลักฐานภาพยังอยู่ในขั้นพัฒนา จะเพิ่มให้อัปโหลดรูปจริงในรอบถัดไป');
+                      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                    }}
+                  >
+                    📷 หลักฐานภาพ
+                  </button>
+                  <button className="item service-button" type="button" onClick={() => setPage('track')}>
+                    🔎 ติดตามสถานะด้วยเลข BLM
+                  </button>
+                  <button className="item service-button" type="button" onClick={() => setPage('staff')}>
+                    🔐 เข้าสู่ระบบเจ้าหน้าที่/ผู้บริหาร
+                  </button>
                 </div>
               </aside>
             </div>
@@ -520,6 +545,9 @@ export default function App() {
                     </div>
                     {!demo && session && (
                       <div className="row">
+                        <button className="btn secondary" onClick={() => setShowClosed((value) => !value)}>
+                          {showClosed ? 'ซ่อนเรื่องที่ปิดแล้ว' : `ดูเรื่องที่ปิดแล้ว (${closedCount})`}
+                        </button>
                         <button className="btn secondary" onClick={() => void loadProfileAndIncidents(session.user.id)}>
                           รีเฟรช
                         </button>
@@ -537,8 +565,10 @@ export default function App() {
 
                 {!staffLoading && canViewStaff && (
                   <div className="list">
-                    {items.length === 0 && <div className="card">ยังไม่มีรายการแจ้งเหตุ</div>}
-                    {items.map((i) => (
+                    {activeStaffItems.length === 0 && (
+                      <div className="card">{showClosed ? 'ยังไม่มีเรื่องที่ปิดแล้ว' : 'ไม่มีงานที่กำลังเปิดอยู่'}</div>
+                    )}
+                    {activeStaffItems.map((i) => (
                       <div className="item" key={i.id}>
                         <div className="row" style={{ justifyContent: 'space-between' }}>
                           <div>
