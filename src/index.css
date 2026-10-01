@@ -9,3 +9,9 @@
 .location-pin-icon{background:transparent;border:0}
 .location-pin-emoji{font-size:34px;line-height:38px;filter:drop-shadow(0 2px 2px #0005)}
 @media (max-width: 640px){.location-map{height:300px}}
+
+.gis-live{display:grid;gap:14px}
+.gis-toolbar{justify-content:space-between;align-items:center}
+.gis-area-editor{margin:0}
+.gis-live-map{height:560px;width:100%;border:1px solid #cbd5e1;border-radius:16px;overflow:hidden;background:#e2e8f0}
+@media (max-width:640px){.gis-live-map{height:420px}.gis-toolbar{align-items:flex-start}}
