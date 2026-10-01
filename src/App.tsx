@@ -495,7 +495,21 @@ export default function App() {
                     </label>
                     <label className="field">
                       หมู่บ้าน/หมู่ที่ *
-                      <input id="village-input" name="village" placeholder="เช่น หมู่ 3" />
+                      <select id="village-input" name="village" defaultValue="" required>
+                        <option value="" disabled>เลือกหมู่บ้าน/หมู่ที่</option>
+                        <option value="หมู่ที่ 1 บ้านบ่อหลวง">หมู่ที่ 1 · บ้านบ่อหลวง</option>
+                        <option value="หมู่ที่ 2 บ้านวังกอง">หมู่ที่ 2 · บ้านวังกอง</option>
+                        <option value="หมู่ที่ 3 บ้านขุน">หมู่ที่ 3 · บ้านขุน</option>
+                        <option value="หมู่ที่ 4 บ้านนาฟ่อน">หมู่ที่ 4 · บ้านนาฟ่อน</option>
+                        <option value="หมู่ที่ 5 บ้านแม่ลายเหนือ (รวมบ้านแม่ลายใต้)">หมู่ที่ 5 · บ้านแม่ลายเหนือ (รวมบ้านแม่ลายใต้)</option>
+                        <option value="หมู่ที่ 6 บ้านแม่ลายใต้ / บ้านพุย (บางส่วน)">หมู่ที่ 6 · บ้านแม่ลายใต้ / บ้านพุย (บางส่วน)</option>
+                        <option value="หมู่ที่ 7 บ้านพุย / บ้านกิ่วลม">หมู่ที่ 7 · บ้านพุย / บ้านกิ่วลม</option>
+                        <option value="หมู่ที่ 8 บ้านกิ่วลม / บ้านเตียนอาง">หมู่ที่ 8 · บ้านกิ่วลม / บ้านเตียนอาง</option>
+                        <option value="หมู่ที่ 10 บ้านเตียนอาง">หมู่ที่ 10 · บ้านเตียนอาง</option>
+                        <option value="หมู่ที่ 11 บ้านบ่อสะแง๋">หมู่ที่ 11 · บ้านบ่อสะแง๋</option>
+                        <option value="หมู่ที่ 12 บ้านบ่อพะแวน (ที่ตั้งสำนักงานเทศบาลตำบลบ่อหลวง)">หมู่ที่ 12 · บ้านบ่อพะแวน (ที่ตั้งสำนักงานเทศบาล)</option>
+                        <option value="หมู่ที่ 13 บ้านแม่หืด">หมู่ที่ 13 · บ้านแม่หืด</option>
+                      </select>
                     </label>
                     <label className="field">
                       ความเร่งด่วน
