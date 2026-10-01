@@ -25,6 +25,7 @@ type Incident = {
   created_at: string;
   assigned_department?: string | null;
   public_note?: string | null;
+  photo_url?: string | null;
 };
 
 const demoSeed: Incident[] = [
@@ -85,6 +86,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [staffLoading, setStaffLoading] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   const demo = !supabaseConfigured || import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -142,7 +144,7 @@ export default function App() {
 
     const { data: incidents, error } = await supabase
       .from('municipal_incidents')
-      .select('id,tracking_no,category,title,description,village,house_number,urgency,status,created_at,assigned_department,public_note')
+      .select('id,tracking_no,category,title,description,village,house_number,urgency,status,created_at,assigned_department,public_note,photo_url')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -228,6 +230,20 @@ export default function App() {
     await loadProfileAndIncidents(session.user.id);
   }
 
+  async function openEvidence(path: string) {
+    if (!supabase) return;
+    const { data, error } = await supabase.storage
+      .from('incident-attachments')
+      .createSignedUrl(path, 60);
+
+    if (error || !data?.signedUrl) {
+      setAuthMessage('ไม่สามารถเปิดรูปหลักฐานได้');
+      return;
+    }
+
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  }
+
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMessage('');
@@ -248,6 +264,18 @@ export default function App() {
       return;
     }
 
+    if (photoFile) {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(photoFile.type)) {
+        setMessage('รองรับเฉพาะรูป JPG, PNG หรือ WebP');
+        return;
+      }
+      if (photoFile.size > 5 * 1024 * 1024) {
+        setMessage('รูปต้องมีขนาดไม่เกิน 5 MB');
+        return;
+      }
+    }
+
     if (demo || !supabase) {
       const incident: Incident = {
         ...payload,
@@ -262,6 +290,30 @@ export default function App() {
       return;
     }
 
+    let photoPath: string | null = null;
+
+    if (photoFile) {
+      const extension =
+        photoFile.type === 'image/png'
+          ? 'png'
+          : photoFile.type === 'image/webp'
+            ? 'webp'
+            : 'jpg';
+      photoPath = `public-submissions/${crypto.randomUUID()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('incident-attachments')
+        .upload(photoPath, photoFile, {
+          contentType: photoFile.type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        setMessage('อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่');
+        return;
+      }
+    }
+
     const { data, error } = await supabase.rpc('submit_incident', {
       p_category: payload.category,
       p_title: payload.title,
@@ -271,6 +323,7 @@ export default function App() {
       p_reporter_name: payload.reporter_name || null,
       p_reporter_phone: payload.reporter_phone || null,
       p_urgency: payload.urgency,
+      p_photo_path: photoPath,
     });
 
     if (error) {
@@ -281,6 +334,7 @@ export default function App() {
     const trackingNo = data?.[0]?.tracking_no;
     setMessage(trackingNo ? 'ส่งเรื่องสำเร็จ เลขติดตาม: ' + trackingNo : 'ส่งเรื่องสำเร็จ');
     e.currentTarget.reset();
+    setPhotoFile(null);
   }
 
   async function doTrack() {
@@ -425,6 +479,17 @@ export default function App() {
                     </label>
                   </div>
 
+                  <label className="field">
+                    รูปหลักฐาน (ถ้ามี)
+                    <input
+                      id="photo-input"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                    />
+                    <span className="muted">JPG, PNG หรือ WebP ไม่เกิน 5 MB</span>
+                  </label>
+
                   <button className="btn primary">ส่งเรื่องให้เทศบาล</button>
                 </form>
 
@@ -451,10 +516,7 @@ export default function App() {
                   <button
                     className="item service-button"
                     type="button"
-                    onClick={() => {
-                      setMessage('ระบบแนบหลักฐานภาพยังอยู่ในขั้นพัฒนา จะเพิ่มให้อัปโหลดรูปจริงในรอบถัดไป');
-                      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                    }}
+                    onClick={() => document.getElementById('photo-input')?.click()}
                   >
                     📷 หลักฐานภาพ
                   </button>
@@ -584,6 +646,14 @@ export default function App() {
 
                         {i.assigned_department && (
                           <p className="muted">หน่วยงาน: {i.assigned_department}</p>
+                        )}
+
+                        {i.photo_url && (
+                          <p>
+                            <button className="btn secondary" onClick={() => void openEvidence(i.photo_url!)}>
+                              📷 เปิดรูปหลักฐาน
+                            </button>
+                          </p>
                         )}
 
                         {canWrite && (
