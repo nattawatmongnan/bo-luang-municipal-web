@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { isInsideBoLuang } from './boLuangBoundary';
 import PWAInstall from './PWAInstall';
-import { LanguageSwitcher, localizeCategory, localizeRole, localizeStatus, localizeVillage, useI18n } from './i18n';
+import { LanguageSwitcher, localizeCategory, localizeRole, localizeStatus, localizeSystemNote, localizeVillage, useI18n } from './i18n';
 
 const LocationPicker = lazy(() => import('./LocationPicker'));
 const GISDashboard = lazy(() => import('./GISDashboard'));
@@ -60,14 +60,6 @@ const demoSeed: Incident[] = [
     created_at: new Date().toISOString(),
   },
 ];
-
-const labels: Record<string, string> = {
-  RECEIVED: 'รับเรื่องแล้ว',
-  VERIFYING: 'กำลัง{t('verify')}',
-  IN_PROGRESS: 'กำลังดำเนินการ',
-  DONE: '{t('markDone')}',
-  CLOSED: '{t('closeCase')}',
-};
 
 const staffRoles: AppRole[] = ['staff', 'department', 'executive', 'admin'];
 const writableRoles: AppRole[] = ['staff', 'department', 'admin'];
@@ -565,7 +557,7 @@ export default function App() {
           : t('trackNotFound'),
       );
     } catch {
-      setTrackMessage('เชื่อมต่อเครือข่ายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+      setTrackMessage(t('networkFail'));
     } finally {
       setTrackingLoading(false);
     }
@@ -934,7 +926,7 @@ export default function App() {
                 <p>{found.tracking_no}</p>
                 <span className="status">{localizeStatus(found.status, language)}</span>
                 <p>{t('area')}: {localizeVillage(found.village, language)}</p>
-                <p>{found.public_note || t('noUpdate')}</p>
+                <p>{found.public_note ? localizeSystemNote(found.public_note, language) : t('noUpdate')}</p>
               </div>
             )}
           </section>
@@ -1099,16 +1091,16 @@ export default function App() {
                         {canWrite && (
                           <div className="row">
                             <button className="btn secondary" onClick={() => void updateStatus(i, 'VERIFYING')}>
-                              ตรวจสอบ
+                              {t('verify')}
                             </button>
                             <button className="btn secondary" onClick={() => void updateStatus(i, 'IN_PROGRESS')}>
                               {t('takeAction')}
                             </button>
                             <button className="btn primary" onClick={() => void updateStatus(i, 'DONE')}>
-                              ดำเนินการแล้ว
+                              {t('markDone')}
                             </button>
                             <button className="btn secondary" onClick={() => void updateStatus(i, 'CLOSED')}>
-                              ปิดเรื่อง
+                              {t('closeCase')}
                             </button>
                           </div>
                         )}
@@ -1160,8 +1152,8 @@ export default function App() {
           <>
             {!demo && !session && (
               <section className="card access-gate">
-                <h2>กรุณาเข้าสู่ระบบก่อน</h2>
-                <button className="btn primary" type="button" onClick={() => setPage('staff')}>ไปหน้าเข้าสู่ระบบ</button>
+                <h2>{t('loginFirst')}</h2>
+                <button className="btn primary" type="button" onClick={() => setPage('staff')}>{t('goLogin')}</button>
               </section>
             )}
 
