@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from './lib/supabase';
-import { localizeStatus, localizeVillage, useI18n } from './i18n';
+import { localizeCategory, localizeEmergencyKind, localizeStatus, localizeSystemNote, localizeUrgency, localizeVillage, useI18n } from './i18n';
 import { BO_LUANG_BOUNDARY, isInsideBoLuang } from './boLuangBoundary';
 
 type IncidentPoint = {
@@ -55,6 +55,15 @@ const statusLabel: Record<string, string> = {
   CLOSED: 'ปิดเรื่อง',
 };
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 export default function GISDashboard({ userId, canWrite }: Props) {
   const { language, t, locale } = useI18n();
   const mapEl = useRef<HTMLDivElement | null>(null);
@@ -67,7 +76,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
 
   const [incidents, setIncidents] = useState<IncidentPoint[]>([]);
   const [areas, setAreas] = useState<EmergencyArea[]>([]);
-  const [liveStatus, setLiveStatus] = useState('กำลังเชื่อมต่อ Realtime...');
+  const [liveStatus, setLiveStatus] = useState(t('realtimeConnecting'));
   const [message, setMessage] = useState('');
   const [drawing, setDrawing] = useState(false);
   const [areaTitle, setAreaTitle] = useState('');
@@ -96,7 +105,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
 
     if (!incidentResult.error) setIncidents((incidentResult.data || []) as IncidentPoint[]);
     if (!areaResult.error) setAreas((areaResult.data || []) as EmergencyArea[]);
-  }, []);
+  }, [language]);
 
   const villages = useMemo(
     () => Array.from(new Set(incidents.map((i) => i.village).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'th')),
@@ -131,7 +140,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'municipal_incidents' }, () => void reload())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emergency_areas' }, () => void reload())
       .subscribe((status) => {
-        setLiveStatus(status === 'SUBSCRIBED' ? '● Realtime เชื่อมต่อแล้ว' : `Realtime: ${status}`);
+        setLiveStatus(status === 'SUBSCRIBED' ? t('realtimeConnected') : `Realtime: ${status}`);
       });
 
     return () => {
@@ -167,7 +176,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
     map.on('click', (event: L.LeafletMouseEvent) => {
       if (!drawingRef.current) return;
       if (!isInsideBoLuang(event.latlng.lat, event.latlng.lng)) {
-        setMessage('วาดพื้นที่ได้เฉพาะภายในเขตเทศบาลตำบลบ่อหลวง');
+        setMessage(t('drawInside'));
         return;
       }
       draftPointsRef.current.push(event.latlng);
@@ -176,7 +185,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
         weight: 3,
         fillOpacity: 0.15,
       }).addTo(map);
-      setMessage(`จุดขอบเขต: ${draftPointsRef.current.length} จุด`);
+      setMessage(`${t('boundaryPoints')}: ${draftPointsRef.current.length} ${t('points')}`);
     });
 
     mapRef.current = map;
@@ -198,7 +207,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
       const icon = L.divIcon({
         className: 'incident-person-marker',
         html: `
-          <div class="incident-person-dot" style="--incident-color:${color}" aria-label="${severityLabel[i.urgency] || i.urgency}">
+          <div class="incident-person-dot" style="--incident-color:${color}" aria-label="${escapeHtml(localizeUrgency(i.urgency, language))}">
             <span class="incident-person-symbol">👤</span>
             <span class="incident-severity-pip"></span>
           </div>
@@ -211,16 +220,16 @@ export default function GISDashboard({ userId, canWrite }: Props) {
       const marker = L.marker([i.lat, i.lng], { icon });
       marker.on('click', () => setSelectedIncident(i));
       marker.bindPopup(
-        `<b>${i.title}</b><br>
-        ${i.tracking_no}<br>
-        พื้นที่: ${i.village}<br>
-        ประเภท: ${i.category}<br>
-        ความรุนแรง: <b style="color:${color}">${severityLabel[i.urgency] || i.urgency}</b><br>
-        สถานะ: ${statusLabel[i.status] || i.status}`,
+        `<b>${escapeHtml(i.title)}</b><br>
+        ${escapeHtml(i.tracking_no)}<br>
+        ${escapeHtml(t('area'))}: ${escapeHtml(localizeVillage(i.village, language))}<br>
+        ${escapeHtml(t('type'))}: ${escapeHtml(localizeCategory(i.category, language))}<br>
+        ${escapeHtml(t('severity'))}: <b style="color:${color}">${escapeHtml(localizeUrgency(i.urgency, language))}</b><br>
+        ${escapeHtml(t('status'))}: ${escapeHtml(localizeStatus(i.status, language))}`,
       );
       marker.addTo(layer);
     });
-  }, [filteredIncidents]);
+  }, [filteredIncidents, language]);
 
   useEffect(() => {
     const layer = areaLayerRef.current;
@@ -238,13 +247,13 @@ export default function GISDashboard({ userId, canWrite }: Props) {
         },
       });
       geoLayer.bindPopup(
-        `<b>พื้นที่ฉุกเฉิน: ${a.title}</b><br>
-        ประเภท: ${a.kind}<br>
-        ความรุนแรง: <b style="color:${color}">${severityLabel[a.severity] || a.severity}</b>`,
+        `<b>${escapeHtml(t('emergencyAreas'))}: ${escapeHtml(a.title)}</b><br>
+        ${escapeHtml(t('type'))}: ${escapeHtml(localizeEmergencyKind(a.kind, language))}<br>
+        ${escapeHtml(t('severity'))}: <b style="color:${color}">${escapeHtml(localizeUrgency(a.severity, language))}</b>`,
       );
       geoLayer.addTo(layer);
     });
-  }, [areas]);
+  }, [areas, language]);
 
   function startDrawing() {
     if (!canWrite) return;
@@ -255,7 +264,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
       draftLayerRef.current = null;
     }
     setDrawing(true);
-    setMessage('แตะบนแผนที่อย่างน้อย 3 จุด เพื่อกำหนดขอบเขตพื้นที่ฉุกเฉิน');
+    setMessage(t('drawAtLeast3'));
   }
 
   function cancelDrawing() {
@@ -273,11 +282,11 @@ export default function GISDashboard({ userId, canWrite }: Props) {
     if (!supabase || !canWrite) return;
     const points = draftPointsRef.current;
     if (!areaTitle.trim()) {
-      setMessage('กรุณาใส่ชื่อพื้นที่ฉุกเฉิน');
+      setMessage(t('areaNameRequired'));
       return;
     }
     if (points.length < 3) {
-      setMessage('ต้องกำหนดอย่างน้อย 3 จุด');
+      setMessage(t('need3Points'));
       return;
     }
 
@@ -295,21 +304,21 @@ export default function GISDashboard({ userId, canWrite }: Props) {
 
     if (error) {
       setMessage(error.message.includes('OUTSIDE_BOLUANG_AREA')
-        ? 'พื้นที่ต้องอยู่ภายในเขตเทศบาลตำบลบ่อหลวงทั้งหมด'
-        : 'บันทึกพื้นที่ไม่สำเร็จ');
+        ? t('areaOutside')
+        : t('areaSaveFail'));
       return;
     }
 
     setAreaTitle('');
     cancelDrawing();
-    setMessage('บันทึกพื้นที่ฉุกเฉินแล้ว และจะอัปเดตแบบ Realtime');
+    setMessage(t('areaSaved'));
     await reload();
   }
 
   async function closeArea(id: string) {
     if (!supabase || !canWrite) return;
     const { error } = await supabase.from('emergency_areas').update({ active: false }).eq('id', id);
-    if (error) setMessage('ปิดพื้นที่ไม่สำเร็จ');
+    if (error) setMessage(t('areaCloseFail'));
     else await reload();
   }
 
@@ -327,35 +336,35 @@ export default function GISDashboard({ userId, canWrite }: Props) {
         <div className="card gis-area-editor">
           <div className="grid">
             <label className="field">
-              ชื่อพื้นที่ฉุกเฉิน
-              <input value={areaTitle} onChange={(e) => setAreaTitle(e.target.value)} placeholder="เช่น เขตน้ำท่วม บ้าน..." />
+              {t('areaName')}
+              <input value={areaTitle} onChange={(e) => setAreaTitle(e.target.value)} placeholder={t('areaNamePlaceholder')} />
             </label>
             <label className="field">
-              ประเภท
+              {t('type')}
               <select value={kind} onChange={(e) => setKind(e.target.value)}>
-                <option value="FLOOD">น้ำท่วม</option>
-                <option value="FIRE">ไฟไหม้</option>
-                <option value="ROAD_CLOSED">ถนนปิด</option>
-                <option value="LANDSLIDE">ดินถล่ม</option>
-                <option value="OTHER">อื่น ๆ</option>
+                <option value="FLOOD">{localizeEmergencyKind('FLOOD', language)}</option>
+                <option value="FIRE">{localizeEmergencyKind('FIRE', language)}</option>
+                <option value="ROAD_CLOSED">{localizeEmergencyKind('ROAD_CLOSED', language)}</option>
+                <option value="LANDSLIDE">{localizeEmergencyKind('LANDSLIDE', language)}</option>
+                <option value="OTHER">{localizeEmergencyKind('OTHER', language)}</option>
               </select>
             </label>
             <label className="field">
-              ระดับ
+              {t('level')}
               <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
-                <option value="LOW">ทั่วไป</option>
-                <option value="MEDIUM">เฝ้าระวัง</option>
-                <option value="HIGH">ฉุกเฉิน</option>
+                <option value="LOW">{localizeUrgency('LOW', language)}</option>
+                <option value="MEDIUM">{localizeUrgency('MEDIUM', language)}</option>
+                <option value="HIGH">{localizeUrgency('HIGH', language)}</option>
               </select>
             </label>
           </div>
           <div className="row">
             {!drawing ? (
-              <button className="btn primary" type="button" onClick={startDrawing}>✏️ วาดพื้นที่ฉุกเฉิน</button>
+              <button className="btn primary" type="button" onClick={startDrawing}>{t('drawArea')}</button>
             ) : (
               <>
-                <button className="btn primary" type="button" onClick={() => void saveArea()}>บันทึกพื้นที่</button>
-                <button className="btn secondary" type="button" onClick={cancelDrawing}>ยกเลิก</button>
+                <button className="btn primary" type="button" onClick={() => void saveArea()}>{t('saveArea')}</button>
+                <button className="btn secondary" type="button" onClick={cancelDrawing}>{t('cancel')}</button>
               </>
             )}
           </div>
@@ -366,15 +375,15 @@ export default function GISDashboard({ userId, canWrite }: Props) {
       <section className="card gis-filters">
         <div className="gis-filter-grid">
           <label className="field">
-            ค้นหา
+            {t('filterSearch')}
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="เลข BLM / หัวข้อ / หมู่บ้าน / หน่วยงาน"
+              placeholder={t('gisSearchPlaceholder')}
             />
           </label>
           <label className="field">
-            สถานะ
+            {t('status')}
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="ACTIVE">{t('activeOnly')}</option>
               <option value="ALL">{t('all')}</option>
@@ -386,16 +395,16 @@ export default function GISDashboard({ userId, canWrite }: Props) {
             </select>
           </label>
           <label className="field">
-            ความรุนแรง
+            {t('severity')}
             <select value={urgencyFilter} onChange={(e) => setUrgencyFilter(e.target.value)}>
               <option value="ALL">{t('everyLevel')}</option>
-              <option value="HIGH">รุนแรง/ฉุกเฉิน</option>
-              <option value="MEDIUM">เฝ้าระวัง</option>
-              <option value="LOW">ทั่วไป</option>
+              <option value="HIGH">{localizeUrgency('HIGH', language)}</option>
+              <option value="MEDIUM">{localizeUrgency('MEDIUM', language)}</option>
+              <option value="LOW">{localizeUrgency('LOW', language)}</option>
             </select>
           </label>
           <label className="field">
-            หมู่บ้าน
+            {t('village')}
             <select value={villageFilter} onChange={(e) => setVillageFilter(e.target.value)}>
               <option value="ALL">{t('everyVillage')}</option>
               {villages.map((village) => <option value={village} key={village}>{localizeVillage(village, language)}</option>)}
@@ -405,14 +414,14 @@ export default function GISDashboard({ userId, canWrite }: Props) {
         <div className="muted">{t('showing')} {filteredIncidents.length} {t('from')} {incidents.length} {t('points')}</div>
       </section>
 
-      <div className="gis-severity-legend" aria-label="คำอธิบายระดับความรุนแรง">
-        <span><i className="legend-dot low" />ทั่วไป</span>
-        <span><i className="legend-dot medium" />เฝ้าระวัง</span>
-        <span><i className="legend-dot high" />รุนแรง/ฉุกเฉิน</span>
+      <div className="gis-severity-legend" aria-label={t('severityLegend')}>
+        <span><i className="legend-dot low" />{localizeUrgency('LOW', language)}</span>
+        <span><i className="legend-dot medium" />{localizeUrgency('MEDIUM', language)}</span>
+        <span><i className="legend-dot high" />{localizeUrgency('HIGH', language)}</span>
         <span className="muted">{t('publicPoint')}</span>
       </div>
 
-      <div ref={mapEl} className="gis-live-map" aria-label="แผนที่ GIS แบบ Realtime" />
+      <div ref={mapEl} className="gis-live-map" aria-label={t('gisMapLabel')} />
 
       <div className="gis-below-grid">
         <section className="card">
@@ -433,7 +442,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
               >
                 <span className="gis-incident-title">{item.title}</span>
                 <span className="muted">{item.tracking_no} · {localizeVillage(item.village, language)}</span>
-                <span>{severityLabel[item.urgency] || item.urgency} · {localizeStatus(item.status, language)}</span>
+                <span>{localizeUrgency(item.urgency, language)} · {localizeStatus(item.status, language)}</span>
               </button>
             ))}
           </div>
@@ -447,12 +456,12 @@ export default function GISDashboard({ userId, canWrite }: Props) {
             <div className="gis-detail">
               <b>{selectedIncident.title}</b>
               <div className="muted">{selectedIncident.tracking_no}</div>
-              <p>{t('type')}: {selectedIncident.category}</p>
+              <p>{t('type')}: {localizeCategory(selectedIncident.category, language)}</p>
               <p>{t('area')}: {localizeVillage(selectedIncident.village, language)}</p>
-              <p>{t('severity')}: {severityLabel[selectedIncident.urgency] || selectedIncident.urgency}</p>
+              <p>{t('severity')}: {localizeUrgency(selectedIncident.urgency, language)}</p>
               <p>{t('status')}: {localizeStatus(selectedIncident.status, language)}</p>
               {selectedIncident.assigned_department && <p>{t('department')}: {selectedIncident.assigned_department}</p>}
-              {selectedIncident.public_note && <p>{t('update')}: {selectedIncident.public_note}</p>}
+              {selectedIncident.public_note && <p>{t('update')}: {localizeSystemNote(selectedIncident.public_note, language)}</p>}
               {selectedIncident.created_at && <p className="muted">{t('receivedAt')}: {new Date(selectedIncident.created_at).toLocaleString(locale)}</p>}
               {selectedIncident.lat !== null && selectedIncident.lng !== null && (
                 <p className="muted">{t('coordinate')}: {selectedIncident.lat.toFixed(6)}, {selectedIncident.lng.toFixed(6)}</p>
@@ -464,13 +473,13 @@ export default function GISDashboard({ userId, canWrite }: Props) {
 
       {areas.some((a) => a.active) && (
         <div className="card">
-          <b>พื้นที่ฉุกเฉินที่กำลังใช้งาน</b>
+          <b>{t('activeEmergencyAreas')}</b>
           <div className="list" style={{ marginTop: 10 }}>
             {areas.filter((a) => a.active).map((a) => (
               <div className="item" key={a.id}>
                 <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <span><b>{a.title}</b> · {a.kind} · {a.severity}</span>
-                  {canWrite && <button className="btn secondary" type="button" onClick={() => void closeArea(a.id)}>ปิดพื้นที่</button>}
+                  <span><b>{a.title}</b> · {localizeEmergencyKind(a.kind, language)} · {localizeUrgency(a.severity, language)}</span>
+                  {canWrite && <button className="btn secondary" type="button" onClick={() => void closeArea(a.id)}>{t('closeArea')}</button>}
                 </div>
               </div>
             ))}
