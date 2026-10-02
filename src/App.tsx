@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { isInsideBoLuang } from './boLuangBoundary';
 import PWAInstall from './PWAInstall';
+import { LanguageSwitcher, localizeCategory, localizeStatus, localizeVillage, useI18n } from './i18n';
 
 const LocationPicker = lazy(() => import('./LocationPicker'));
 const GISDashboard = lazy(() => import('./GISDashboard'));
@@ -77,6 +78,7 @@ function makeTracking() {
 }
 
 export default function App() {
+  const { language, t, locale } = useI18n();
   const [page, setPage] = useState<Page>('citizen');
   const [items, setItems] = useState<Incident[]>(demoSeed);
   const [message, setMessage] = useState('');
@@ -588,66 +590,64 @@ export default function App() {
       <header className="top">
         <div className="top-inner">
           <div className="brand-lockup">
-            <img src="/icons/bo-luang-icon.svg" alt="โลโก้เทศบาลตำบลบ่อหลวง" className="brand-logo" />
+            <img src="/icons/bo-luang-icon.svg" alt={t('brand')} className="brand-logo" />
             <div>
-              <div className="brand">เทศบาลตำบลบ่อหลวง</div>
+              <div className="brand">{t('brand')}</div>
               <div className="brand-en">BO-LUANG T CARE</div>
-              <div className="sub">แจ้งเหตุ · ติดตามงาน · GIS Live · ศูนย์งานเจ้าหน้าที่</div>
+              <div className="sub">{t('brandSub')}</div>
             </div>
           </div>
-          <nav className="nav">
+          <div className="top-actions">
+            <LanguageSwitcher />
+            <nav className="nav">
             {([
-              ['citizen', 'ประชาชน'],
-              ['track', 'ติดตามเรื่อง'],
-              ['staff', 'เจ้าหน้าที่'],
+              ['citizen', t('citizen')],
+              ['track', t('track')],
+              ['staff', t('staff')],
               ['gis', 'GIS Live'],
-              ['executive', 'ผู้บริหาร'],
+              ['executive', t('executive')],
             ] as [Page, string][]).map(([p, l]) => (
               <button className={page === p ? 'active' : ''} onClick={() => setPage(p)} key={p}>
                 {l}
               </button>
             ))}
-          </nav>
+            </nav>
+          </div>
         </div>
       </header>
 
       <main className="wrap">
         {demo && (
           <div className="notice">
-            ขณะนี้อยู่ใน <b>Demo mode</b> — ข้อมูลตัวอย่างไม่ได้ใช้แทนฐานข้อมูลเทศบาลจริง
+            {t('demo')}
           </div>
         )}
 
         {page === 'citizen' && (
           <>
             <section className="hero">
-              <h1>แจ้งเหตุหรือขอความช่วยเหลือ</h1>
-              <p>ส่งข้อมูลให้เทศบาลพร้อมเลขติดตามเรื่อง ใช้งานได้ทั้งมือถือและคอมพิวเตอร์</p>
+              <h1>{t('reportHero')}</h1>
+              <p>{t('reportHeroDesc')}</p>
               <span className="emergency">
-                กรณีฉุกเฉินที่เสี่ยงต่อชีวิต โปรดติดต่อหน่วยฉุกเฉินที่เกี่ยวข้องโดยตรง
+                {t('emergency')}
               </span>
             </section>
 
             <div className="grid">
               <section className="card citizen-form-card">
-                <h2>แบบฟอร์มแจ้งเหตุ</h2>
+                <h2>{t('reportForm')}</h2>
                 <form onSubmit={submit}>
                   <div className="grid">
                     <label className="field">
-                      ประเภท
+                      {t('category')}
                       <select name="category">
-                        <option>ถนน</option>
-                        <option>ไฟส่องสว่าง</option>
-                        <option>ขยะ</option>
-                        <option>น้ำประปา</option>
-                        <option>น้ำท่วม</option>
-                        <option>สัตว์รบกวน</option>
-                        <option>ความปลอดภัย</option>
-                        <option>อื่นๆ</option>
+                        {['ถนน','ไฟส่องสว่าง','ขยะ','น้ำประปา','น้ำท่วม','สัตว์รบกวน','ความปลอดภัย','อื่นๆ'].map((value) => (
+                          <option value={value} key={value}>{localizeCategory(value, language)}</option>
+                        ))}
                       </select>
                     </label>
                     <label className="field">
-                      หมู่บ้าน/หมู่ที่ *
+                      {t('village')}
                       <select
                         id="village-input"
                         name="village"
@@ -656,39 +656,39 @@ export default function App() {
                         aria-invalid={Boolean(formErrors.village)}
                         aria-describedby={formErrors.village ? 'village-error' : undefined}
                       >
-                        <option value="" disabled>เลือกหมู่บ้าน/หมู่ที่</option>
-                        <option value="หมู่ที่ 1 บ้านบ่อหลวง">หมู่ที่ 1 · บ้านบ่อหลวง</option>
-                        <option value="หมู่ที่ 2 บ้านวังกอง">หมู่ที่ 2 · บ้านวังกอง</option>
-                        <option value="หมู่ที่ 3 บ้านขุน">หมู่ที่ 3 · บ้านขุน</option>
-                        <option value="หมู่ที่ 4 บ้านนาฟ่อน">หมู่ที่ 4 · บ้านนาฟ่อน</option>
-                        <option value="หมู่ที่ 5 บ้านแม่ลายเหนือ (รวมบ้านแม่ลายใต้)">หมู่ที่ 5 · บ้านแม่ลายเหนือ (รวมบ้านแม่ลายใต้)</option>
-                        <option value="หมู่ที่ 6 บ้านแม่ลายใต้ / บ้านพุย (บางส่วน)">หมู่ที่ 6 · บ้านแม่ลายใต้ / บ้านพุย (บางส่วน)</option>
-                        <option value="หมู่ที่ 7 บ้านพุย / บ้านกิ่วลม">หมู่ที่ 7 · บ้านพุย / บ้านกิ่วลม</option>
-                        <option value="หมู่ที่ 8 บ้านกิ่วลม / บ้านเตียนอาง">หมู่ที่ 8 · บ้านกิ่วลม / บ้านเตียนอาง</option>
-                        <option value="หมู่ที่ 9 บ้านแม่สะนาม">หมู่ที่ 9 · บ้านแม่สะนาม</option>
-                        <option value="หมู่ที่ 10 บ้านเตียนอาง">หมู่ที่ 10 · บ้านเตียนอาง</option>
-                        <option value="หมู่ที่ 11 บ้านบ่อสะแง๋">หมู่ที่ 11 · บ้านบ่อสะแง๋</option>
-                        <option value="หมู่ที่ 12 บ้านบ่อพะแวน (ที่ตั้งสำนักงานเทศบาลตำบลบ่อหลวง)">หมู่ที่ 12 · บ้านบ่อพะแวน (ที่ตั้งสำนักงานเทศบาล)</option>
-                        <option value="หมู่ที่ 13 บ้านแม่หืด">หมู่ที่ 13 · บ้านแม่หืด</option>
+                        <option value="" disabled>{t('chooseVillage')}</option>
+                        <option value="หมู่ที่ 1 บ้านบ่อหลวง">{localizeVillage('หมู่ที่ 1 บ้านบ่อหลวง', language)}</option>
+                        <option value="หมู่ที่ 2 บ้านวังกอง">{localizeVillage('หมู่ที่ 2 บ้านวังกอง', language)}</option>
+                        <option value="หมู่ที่ 3 บ้านขุน">{localizeVillage('หมู่ที่ 3 บ้านขุน', language)}</option>
+                        <option value="หมู่ที่ 4 บ้านนาฟ่อน">{localizeVillage('หมู่ที่ 4 บ้านนาฟ่อน', language)}</option>
+                        <option value="หมู่ที่ 5 บ้านแม่ลายเหนือ (รวมบ้านแม่ลายใต้)">{localizeVillage('หมู่ที่ 5 บ้านแม่ลายเหนือ (รวมบ้านแม่ลายใต้)', language)}</option>
+                        <option value="หมู่ที่ 6 บ้านแม่ลายใต้ / บ้านพุย (บางส่วน)">{localizeVillage('หมู่ที่ 6 บ้านแม่ลายใต้ / บ้านพุย (บางส่วน)', language)}</option>
+                        <option value="หมู่ที่ 7 บ้านพุย / บ้านกิ่วลม">{localizeVillage('หมู่ที่ 7 บ้านพุย / บ้านกิ่วลม', language)}</option>
+                        <option value="หมู่ที่ 8 บ้านกิ่วลม / บ้านเตียนอาง">{localizeVillage('หมู่ที่ 8 บ้านกิ่วลม / บ้านเตียนอาง', language)}</option>
+                        <option value="หมู่ที่ 9 บ้านแม่สะนาม">{localizeVillage('หมู่ที่ 9 บ้านแม่สะนาม', language)}</option>
+                        <option value="หมู่ที่ 10 บ้านเตียนอาง">{localizeVillage('หมู่ที่ 10 บ้านเตียนอาง', language)}</option>
+                        <option value="หมู่ที่ 11 บ้านบ่อสะแง๋">{localizeVillage('หมู่ที่ 11 บ้านบ่อสะแง๋', language)}</option>
+                        <option value="หมู่ที่ 12 บ้านบ่อพะแวน (ที่ตั้งสำนักงานเทศบาลตำบลบ่อหลวง)">{localizeVillage('หมู่ที่ 12 บ้านบ่อพะแวน (ที่ตั้งสำนักงานเทศบาลตำบลบ่อหลวง)', language)}</option>
+                        <option value="หมู่ที่ 13 บ้านแม่หืด">{localizeVillage('หมู่ที่ 13 บ้านแม่หืด', language)}</option>
                       </select>
                       {formErrors.village && <span id="village-error" className="field-error" role="alert">{formErrors.village}</span>}
                     </label>
                     <label className="field">
-                      ความเร่งด่วน
+                      {t('urgency')}
                       <select name="urgency">
-                        <option value="LOW">ทั่วไป</option>
-                        <option value="MEDIUM">เร่งด่วนปานกลาง</option>
-                        <option value="HIGH">เร่งด่วน</option>
+                        <option value="LOW">{t('low')}</option>
+                        <option value="MEDIUM">{t('medium')}</option>
+                        <option value="HIGH">{t('high')}</option>
                       </select>
                     </label>
                   </div>
 
                   <label className="field" htmlFor="title-input">
-                    หัวข้อ *
+                    {t('title')}
                     <input
                       id="title-input"
                       name="title"
-                      placeholder="สรุปเหตุสั้น ๆ"
+                      placeholder={t('titlePh')}
                       aria-invalid={Boolean(formErrors.title)}
                       aria-describedby={formErrors.title ? 'title-error' : undefined}
                     />
@@ -696,11 +696,11 @@ export default function App() {
                   </label>
 
                   <label className="field" htmlFor="description-input">
-                    รายละเอียด *
+                    {t('description')}
                     <textarea
                       id="description-input"
                       name="description"
-                      placeholder="อธิบายตำแหน่งและสิ่งที่ต้องการให้ช่วย"
+                      placeholder={t('descriptionPh')}
                       aria-invalid={Boolean(formErrors.description)}
                       aria-describedby={formErrors.description ? 'description-error' : undefined}
                     />
@@ -709,15 +709,15 @@ export default function App() {
 
                   <div className="grid">
                     <label className="field">
-                      บ้านเลขที่
+                      {t('house')}
                       <input name="house" />
                     </label>
                     <label className="field">
-                      ชื่อผู้แจ้ง
+                      {t('reporter')}
                       <input name="name" />
                     </label>
                     <label className="field" htmlFor="phone-input">
-                      เบอร์โทร (ถ้ามี)
+                      {t('phone')}
                       <input
                         id="phone-input"
                         name="phone"
@@ -727,23 +727,23 @@ export default function App() {
                         aria-invalid={Boolean(formErrors.phone)}
                         aria-describedby={formErrors.phone ? 'phone-error phone-help' : 'phone-help'}
                       />
-                      <span id="phone-help" className="muted">กรอกเบอร์โทรเต็ม โดยใช้ 4 หลักท้ายเพื่อยืนยันตอนติดตามเรื่อง</span>
+                      <span id="phone-help" className="muted">{t('phoneHelp')}</span>
                       {formErrors.phone && <span id="phone-error" className="field-error" role="alert">{formErrors.phone}</span>}
                     </label>
                   </div>
 
                   <div className="field" id="manual-location-picker">
-                    <span>ตำแหน่งจุดเกิดเหตุ *</span>
+                    <span>{t('incidentLocation')}</span>
                     <p className="muted location-instruction">
-                      เปิดแผนที่ได้ทันที แล้วแตะหรือลากหมุดไปยังจุดเกิดเหตุ จากนั้นกดยืนยันตำแหน่ง
+                      {t('mapInstruction')}
                     </p>
                     <div className="row">
                       <button className="btn secondary" type="button" onClick={openManualLocationPicker}>
-                        📍 เปิดแผนที่ปักหมุด
+                        {t('openMap')}
                       </button>
                       {lat !== null && lng !== null && (
                         <span className={locationConfirmed ? 'location-state confirmed' : 'location-state selected'}>
-                          {locationConfirmed ? '✓ ยืนยันตำแหน่งแล้ว' : '● เลือกหมุดแล้ว ยังไม่ได้ยืนยัน'} · {lat.toFixed(6)}, {lng.toFixed(6)}
+                          {locationConfirmed ? t('confirmedPin') : t('selectedPin')} · {lat.toFixed(6)}, {lng.toFixed(6)}
                         </span>
                       )}
                     </div>
@@ -783,7 +783,7 @@ export default function App() {
                               setGpsMessage('✓ ยืนยันหมุดแล้ว พร้อมส่งเข้า GIS/QGIS');
                             }}
                           >
-                            {locationConfirmed ? '✓ ยืนยันหมุดแล้ว' : 'ยืนยันหมุดตำแหน่งนี้'}
+                            {locationConfirmed ? t('confirmedPin') : t('confirmPin')}
                           </button>
                           <button
                             className="btn secondary"
@@ -795,14 +795,14 @@ export default function App() {
                               setGpsMessage('ล้างหมุดแล้ว กรุณาปักจุดใหม่');
                             }}
                           >
-                            ล้างหมุด
+                            {t('clearPin')}
                           </button>
                         </div>
                       </div>
                     )}
                   </div>
                   <label className="field">
-                    รูปหลักฐาน (ถ้ามี)
+                    {t('evidence')}
                     <input
                       id="photo-input"
                       type="file"
@@ -818,17 +818,16 @@ export default function App() {
                         });
                       }}
                     />
-                    <span id="photo-help" className="muted">JPG, PNG หรือ WebP ไม่เกิน 5 MB</span>
+                    <span id="photo-help" className="muted">{t('evidenceHelp')}</span>
                     {formErrors.photo && <span id="photo-error" className="field-error" role="alert">{formErrors.photo}</span>}
                   </label>
 
                   <div className="privacy-note">
-                    <b>การใช้ข้อมูล:</b> ระบบจะใช้ชื่อ เบอร์โทร พิกัด และรูปภาพที่คุณกรอก/แนบ เพื่อรับเรื่อง ติดตาม และดำเนินการแจ้งเหตุในระบบนี้
-                    กรุณาใส่เฉพาะข้อมูลที่จำเป็น ขณะนี้โครงการยังไม่มีข้อความนโยบายเรื่องระยะเวลาเก็บข้อมูลหรือช่องทางผู้รับผิดชอบที่ยืนยันแล้ว จึงไม่แสดงข้อมูลส่วนนั้นแทนผู้ดูแล
+                    <b>{t('dataUse')}:</b> {t('dataUseText')}
                   </div>
 
                   <button className="btn primary submit-button" disabled={submitting}>
-                    {submitting ? 'กำลังส่งเรื่อง…' : 'ส่งเรื่องให้เทศบาล'}
+                    {submitting ? t('submitting') : t('submit')}
                   </button>
                 </form>
 
@@ -842,9 +841,9 @@ export default function App() {
                     <div>{message}</div>
                     {lastTrackingNo && (
                       <div className="tracking-success">
-                        <strong>เลขติดตาม: <span className="tracking-code">{lastTrackingNo}</span></strong>
+                        <strong>{t('trackingNo')}: <span className="tracking-code">{lastTrackingNo}</span></strong>
                         <button className="btn secondary" type="button" onClick={() => void copyTrackingNumber()}>
-                          คัดลอกเลขติดตาม
+                          {t('copyTracking')}
                         </button>
                         {copyStatus && <span className="muted">{copyStatus}</span>}
                       </div>
@@ -886,13 +885,13 @@ export default function App() {
 
         {page === 'track' && (
           <section className="card track-card">
-            <h2>ติดตามเรื่อง</h2>
+            <h2>{t('trackTitle')}</h2>
             <p className="muted">
-              ถ้าตอนแจ้งเหตุไม่ได้กรอกเบอร์โทร ใช้เลขติดตามเรื่องอย่างเดียวได้ แต่ถ้ากรอกเบอร์โทรไว้ ต้องกรอก 4 หลักท้ายของเบอร์นั้นเพื่อยืนยัน
+              {t('trackHelp')}
             </p>
             <form className="track-form" onSubmit={doTrack}>
               <label className="field" htmlFor="tracking-input">
-                เลขติดตามเรื่อง
+                {t('trackingNo')}
                 <input
                   id="tracking-input"
                   value={tracking}
@@ -903,7 +902,7 @@ export default function App() {
                 />
               </label>
               <label className="field" htmlFor="tracking-phone-input">
-                เบอร์โทร 4 หลักท้าย (กรอกเมื่อเคยระบุเบอร์โทรตอนแจ้งเหตุ)
+                {t('phoneLast4')}
                 <input
                   id="tracking-phone-input"
                   value={phoneLast4}
@@ -915,7 +914,7 @@ export default function App() {
                 />
               </label>
               <button className="btn primary" type="submit" disabled={trackingLoading}>
-                {trackingLoading ? 'กำลังค้นหา…' : 'ค้นหา'}
+                {trackingLoading ? t('searching') : t('search')}
               </button>
             </form>
 
@@ -933,9 +932,9 @@ export default function App() {
               <div className="item" style={{ marginTop: 16 }} aria-live="polite">
                 <b>{found.title}</b>
                 <p>{found.tracking_no}</p>
-                <span className="status">{labels[found.status] || found.status}</span>
-                <p>พื้นที่: {found.village}</p>
-                <p>{found.public_note || 'ยังไม่มีข้อความอัปเดต'}</p>
+                <span className="status">{localizeStatus(found.status, language)}</span>
+                <p>{t('area')}: {localizeVillage(found.village, language)}</p>
+                <p>{found.public_note || t('noUpdate')}</p>
               </div>
             )}
           </section>
@@ -947,21 +946,21 @@ export default function App() {
               <section className="card" style={{ maxWidth: 520, margin: '0 auto' }}>
                 <div className="login-brand">
                   <img src="/icons/bo-luang-icon.svg" alt="" className="login-logo" />
-                  <div><b>เทศบาลตำบลบ่อหลวง</b><span>BO-LUANG T CARE</span></div>
+                  <div><b>{t('brand')}</b><span>BO-LUANG T CARE</span></div>
                 </div>
-                <h2>เข้าสู่ระบบเจ้าหน้าที่</h2>
-                <p className="muted">ใช้บัญชีที่เทศบาลออกให้</p>
+                <h2>{t('staffLogin')}</h2>
+                <p className="muted">{t('staffAccount')}</p>
                 <form onSubmit={handleLogin}>
                   <label className="field">
-                    อีเมล
+                    {t('email')}
                     <input type="email" name="email" autoComplete="username" required />
                   </label>
                   <label className="field">
-                    รหัสผ่าน
+                    {t('password')}
                     <input type="password" name="password" autoComplete="current-password" required />
                   </label>
                   <button className="btn primary" disabled={authLoading}>
-                    {authLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+                    {authLoading ? t('loggingIn') : t('login')}
                   </button>
                 </form>
                 {authMessage && <div className="notice" style={{ marginTop: 14 }}>{authMessage}</div>}
@@ -973,7 +972,7 @@ export default function App() {
                 <section className="hero">
                   <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <h1>ศูนย์งานเจ้าหน้าที่</h1>
+                      <h1>{t('staffCenter')}</h1>
                       {profile && (
                         <p>
                           {profile.display_name || 'เจ้าหน้าที่'} · {profile.role}
@@ -987,10 +986,10 @@ export default function App() {
                           {showClosed ? 'ซ่อนเรื่องที่ปิดแล้ว' : `ดูเรื่องที่ปิดแล้ว (${closedCount})`}
                         </button>
                         <button className="btn secondary" onClick={() => void loadProfileAndIncidents(session.user.id)}>
-                          รีเฟรช
+                          {t('refresh')}
                         </button>
                         <button className="btn danger" onClick={() => void handleLogout()}>
-                          ออกจากระบบ
+                          {t('logout')}
                         </button>
                       </div>
                     )}
@@ -999,7 +998,7 @@ export default function App() {
 
                 {authMessage && <div className="notice">{authMessage}</div>}
 
-                {staffLoading && <div className="card">กำลังโหลดข้อมูล...</div>}
+                {staffLoading && <div className="card">{t('loading')}</div>}
 
                 {!staffLoading && profile?.role === 'admin' && (
                   <section className="card admin-profile-card">
@@ -1126,9 +1125,9 @@ export default function App() {
           <>
             {!demo && !session && (
               <section className="card access-gate">
-                <h2>กรุณาเข้าสู่ระบบก่อน</h2>
-                <p className="muted">GIS Live สำหรับเจ้าหน้าที่และผู้บริหารเทศบาล</p>
-                <button className="btn primary" type="button" onClick={() => setPage('staff')}>ไปหน้าเข้าสู่ระบบ</button>
+                <h2>{t('loginFirst')}</h2>
+                <p className="muted">{t('gisStaffOnly')}</p>
+                <button className="btn primary" type="button" onClick={() => setPage('staff')}>{t('goLogin')}</button>
               </section>
             )}
 
@@ -1142,17 +1141,17 @@ export default function App() {
             {!demo && session && canViewStaff && (
               <>
                 <section className="hero">
-                  <h1>GIS Live · ศูนย์เหตุการณ์</h1>
-                  <p>หมุดเหตุและพื้นที่ฉุกเฉินจะอัปเดตจาก Supabase Realtime โดยอัตโนมัติ</p>
+                  <h1>{t('gisCenter')}</h1>
+                  <p>{t('gisRealtime')}</p>
                 </section>
-                <Suspense fallback={<div className="card map-loading">กำลังโหลด GIS Live...</div>}>
+                <Suspense fallback={<div className="card map-loading">{t('loadingGis')}</div>}>
                   <GISDashboard userId={session.user.id} canWrite={canWrite} />
                 </Suspense>
               </>
             )}
 
             {!demo && session && !canViewStaff && (
-              <div className="notice">บัญชีนี้ไม่มีสิทธิ์เปิด GIS Live</div>
+              <div className="notice">{t('noGisPermission')}</div>
             )}
           </>
         )}
@@ -1169,20 +1168,20 @@ export default function App() {
             {(demo || (session && profile && ['executive', 'admin'].includes(profile.role))) && (
               <>
                 <section className="hero">
-                  <h1>Dashboard ผู้บริหาร</h1>
-                  <p>สรุปข้อมูลจากรายการที่ผู้ใช้มีสิทธิ์เข้าถึง โดยไม่แสดงข้อมูลติดต่อของผู้แจ้ง</p>
+                  <h1>{t('execDashboard')}</h1>
+                  <p>{t('execDesc')}</p>
                 </section>
                 <div className="grid">
                   <div className="card">
-                    <div className="muted">เรื่องทั้งหมด</div>
+                    <div className="muted">{t('allCases')}</div>
                     <div className="kpi">{stats.all}</div>
                   </div>
                   <div className="card">
-                    <div className="muted">กำลังดำเนินการ</div>
+                    <div className="muted">{t('activeCases')}</div>
                     <div className="kpi">{stats.active}</div>
                   </div>
                   <div className="card">
-                    <div className="muted">ดำเนินการแล้ว</div>
+                    <div className="muted">{t('doneCases')}</div>
                     <div className="kpi">{stats.done}</div>
                   </div>
                 </div>
@@ -1190,7 +1189,7 @@ export default function App() {
             )}
 
             {!demo && session && profile && !['executive', 'admin'].includes(profile.role) && (
-              <div className="notice">บัญชีนี้ไม่มีสิทธิ์เปิด Dashboard ผู้บริหาร</div>
+              <div className="notice">{t('noExecPermission')}</div>
             )}
           </>
         )}
@@ -1198,7 +1197,7 @@ export default function App() {
 
       <footer className="footer">
         <PWAInstall />
-        <span className="footer-brand"><img src="/icons/bo-luang-icon.svg" alt="" /> เทศบาลตำบลบ่อหลวง · BO-LUANG T CARE</span>
+        <span className="footer-brand"><img src="/icons/bo-luang-icon.svg" alt="" /> {t('brand')} · BO-LUANG T CARE</span>
       </footer>
     </div>
   );
