@@ -145,3 +145,16 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @media(max-width:650px){
   .before-after-grid{grid-template-columns:1fr}
 }
+
+.voice-assist-panel{margin:0 0 16px;padding:14px;border:1px solid #cbd5e1;border-radius:16px;background:#f8fafc}
+.voice-assist-panel.active{border-color:#5eead4;background:#f0fdfa}
+.voice-assist-head{display:flex;gap:14px;justify-content:space-between;align-items:flex-start}
+.voice-assist-head p{margin:4px 0 0;line-height:1.5}
+.voice-toggle{flex:0 0 auto}
+.voice-actions{margin-top:12px}
+.voice-status{margin-top:10px;padding:10px 12px;border-radius:12px;background:#fff;border:1px solid #99f6e4;color:#134e4a;font-weight:700}
+.voice-field-button{justify-self:start;min-height:44px}
+@media(max-width:640px){
+  .voice-assist-head{flex-direction:column}
+  .voice-toggle,.voice-actions .btn,.voice-field-button{width:100%}
+}
