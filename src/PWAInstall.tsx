@@ -59,10 +59,10 @@ export default function PWAInstall() {
       await promptEvent.prompt();
       const choice = await promptEvent.userChoice;
       if (choice.outcome === 'accepted') {
-        setStatus('กำลังติดตั้งแอป…');
+        setStatus(t('installPending'));
         setPromptEvent(null);
       } else {
-        setStatus('ยกเลิกการติดตั้งแล้ว คุณสามารถกดติดตั้งใหม่ภายหลังได้');
+        setStatus(t('installCancelled'));
       }
       return;
     }
