@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from './lib/supabase';
 import { isInsideBoLuang } from './boLuangBoundary';
 import PWAInstall from './PWAInstall';
-import { LanguageSwitcher, localizeCategory, localizeStatus, localizeVillage, useI18n } from './i18n';
+import { LanguageSwitcher, localizeCategory, localizeRole, localizeStatus, localizeVillage, useI18n } from './i18n';
 
 const LocationPicker = lazy(() => import('./LocationPicker'));
 const GISDashboard = lazy(() => import('./GISDashboard'));
@@ -63,10 +63,10 @@ const demoSeed: Incident[] = [
 
 const labels: Record<string, string> = {
   RECEIVED: 'รับเรื่องแล้ว',
-  VERIFYING: 'กำลังตรวจสอบ',
+  VERIFYING: 'กำลัง{t('verify')}',
   IN_PROGRESS: 'กำลังดำเนินการ',
-  DONE: 'ดำเนินการแล้ว',
-  CLOSED: 'ปิดเรื่อง',
+  DONE: '{t('markDone')}',
+  CLOSED: '{t('closeCase')}',
 };
 
 const staffRoles: AppRole[] = ['staff', 'department', 'executive', 'admin'];
@@ -147,7 +147,7 @@ export default function App() {
     if (profileError || !profileData) {
       setProfile(null);
       setItems([]);
-      setAuthMessage('บัญชีนี้ยังไม่ได้รับสิทธิ์เจ้าหน้าที่ในตาราง profiles');
+      setAuthMessage(t('profileMissing'));
       setStaffLoading(false);
       return;
     }
@@ -157,7 +157,7 @@ export default function App() {
 
     if (!staffRoles.includes(nextProfile.role)) {
       setItems([]);
-      setAuthMessage('บัญชีนี้ไม่มีสิทธิ์เข้าหน้าเจ้าหน้าที่');
+      setAuthMessage(t('staffDenied'));
       setStaffLoading(false);
       return;
     }
@@ -169,7 +169,7 @@ export default function App() {
 
     if (error) {
       setItems([]);
-      setAuthMessage('ไม่สามารถโหลดรายการแจ้งเหตุได้');
+      setAuthMessage(t('incidentsLoadFail'));
     } else {
       setItems((incidents || []) as Incident[]);
     }
@@ -195,7 +195,7 @@ export default function App() {
 
     if (error) {
       setAdminProfiles([]);
-      setAdminProfileMessage('โหลดรายชื่อบัญชีที่มี profile ไม่สำเร็จ');
+      setAdminProfileMessage(t('profilesLoadFail'));
     } else {
       setAdminProfiles((data || []) as Profile[]);
     }
@@ -217,11 +217,11 @@ export default function App() {
       .eq('id', item.id);
 
     if (error) {
-      setAdminProfileMessage('บันทึกสิทธิ์ไม่สำเร็จ');
+      setAdminProfileMessage(t('roleSaveFail'));
       return;
     }
 
-    setAdminProfileMessage('บันทึกสิทธิ์แล้ว');
+    setAdminProfileMessage(t('roleSaved'));
     await loadAdminProfiles();
   }
 
@@ -238,7 +238,7 @@ export default function App() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !data.session) {
-      setAuthMessage('อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือบัญชียังไม่พร้อมใช้งาน');
+      setAuthMessage(t('loginFail'));
       setAuthLoading(false);
       return;
     }
@@ -276,7 +276,7 @@ export default function App() {
         ? profile.department || 'เจ้าหน้าที่เทศบาล'
         : incident.assigned_department || null;
 
-    setAuthMessage('กำลังอัปเดตสถานะ…');
+    setAuthMessage(t('statusUpdating'));
 
     const { error } = await supabase.rpc('update_incident_status', {
       p_incident_id: incident.id,
@@ -286,11 +286,11 @@ export default function App() {
     });
 
     if (error) {
-      setAuthMessage('อัปเดตสถานะไม่สำเร็จ ข้อมูลเดิมยังไม่ถูกเปลี่ยน');
+      setAuthMessage(t('statusUpdateFail'));
       return;
     }
 
-    setAuthMessage('อัปเดตสถานะและบันทึกประวัติเรียบร้อยแล้ว');
+    setAuthMessage(t('statusUpdated'));
     await loadProfileAndIncidents(session.user.id);
   }
 
@@ -301,7 +301,7 @@ export default function App() {
       .createSignedUrl(path, 60);
 
     if (error || !data?.signedUrl) {
-      setAuthMessage('ไม่สามารถเปิดรูปหลักฐานได้');
+      setAuthMessage(t('evidenceOpenFail'));
       return;
     }
 
@@ -311,7 +311,7 @@ export default function App() {
   function openManualLocationPicker() {
     setMapPickerOpen(true);
     setLocationConfirmed(false);
-    setGpsMessage('แตะบนแผนที่เพื่อปักหมุดจุดเกิดเหตุ แล้วกดยืนยันตำแหน่ง');
+    setGpsMessage(t('pinPrompt'));
     window.setTimeout(() => {
       document.getElementById('manual-location-picker')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 80);
@@ -329,9 +329,9 @@ export default function App() {
     if (!lastTrackingNo) return;
     try {
       await navigator.clipboard.writeText(lastTrackingNo);
-      setCopyStatus('คัดลอกเลขติดตามแล้ว');
+      setCopyStatus(t('copyDone'));
     } catch {
-      setCopyStatus('คัดลอกอัตโนมัติไม่ได้ กรุณาเลือกเลขแล้วคัดลอกเอง');
+      setCopyStatus(t('copyFail'));
     }
   }
 
@@ -356,29 +356,29 @@ export default function App() {
     };
 
     const errors: Record<string, string> = {};
-    if (!payload.village) errors.village = 'กรุณาเลือกหมู่บ้าน/หมู่ที่';
-    if (payload.title.length < 3) errors.title = 'หัวข้อต้องมีอย่างน้อย 3 ตัวอักษร';
-    if (payload.description.length < 3) errors.description = 'รายละเอียดต้องมีอย่างน้อย 3 ตัวอักษร';
+    if (!payload.village) errors.village = t('chooseVillageError');
+    if (payload.title.length < 3) errors.title = t('titleError');
+    if (payload.description.length < 3) errors.description = t('descriptionError');
 
     const phoneDigits = payload.reporter_phone.replace(/\D/g, '');
     if (payload.reporter_phone && (phoneDigits.length < 9 || phoneDigits.length > 10)) {
-      errors.phone = 'กรุณากรอกเบอร์โทรเต็ม 9–10 หลัก หรือเว้นว่าง';
+      errors.phone = t('phoneError');
     }
 
     if (lat === null || lng === null) {
-      errors.location = 'กรุณาปักหมุดจุดเกิดเหตุบนแผนที่';
+      errors.location = t('locationRequired');
     } else if (!isInsideBoLuang(lat, lng)) {
-      errors.location = 'จุดที่เลือกอยู่นอกขอบเขตอ้างอิงของระบบ';
+      errors.location = t('outsideBoundary');
     } else if (!locationConfirmed) {
-      errors.location = 'เลือกหมุดแล้ว แต่ยังไม่ได้กดยืนยันตำแหน่ง';
+      errors.location = t('pinNotConfirmed');
     }
 
     if (photoFile) {
       const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
       if (!allowedTypes.includes(photoFile.type)) {
-        errors.photo = 'รองรับเฉพาะรูป JPG, PNG หรือ WebP';
+        errors.photo = t('fileTypeError');
       } else if (photoFile.size > 5 * 1024 * 1024) {
-        errors.photo = 'รูปต้องมีขนาดไม่เกิน 5 MB';
+        errors.photo = t('fileSizeError');
       }
     }
 
@@ -394,13 +394,13 @@ export default function App() {
 
     if (firstProblem) {
       if (errors.location) setMapPickerOpen(true);
-      setMessage('กรุณาตรวจสอบข้อมูลที่ระบุไว้ในแบบฟอร์ม');
+      setMessage(t('formCheck'));
       focusProblem(firstProblem);
       return;
     }
 
     if (demo || !supabase) {
-      setMessage('ขณะนี้เป็นโหมดสาธิต จึงยังไม่บันทึกเรื่องและไม่สร้างเลขติดตามจริง');
+      setMessage(t('demoNoSubmit'));
       return;
     }
 
@@ -422,14 +422,14 @@ export default function App() {
           setFormErrors({
             photo:
               uploadCode === 'RATE_LIMITED'
-                ? 'อัปโหลดรูปบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่'
+                ? t('uploadRate')
                 : uploadCode === 'FILE_TOO_LARGE'
-                  ? 'รูปต้องมีขนาดไม่เกิน 5 MB'
+                  ? t('fileSizeError')
                   : uploadCode === 'INVALID_FILE_TYPE'
-                    ? 'รองรับเฉพาะรูป JPG, PNG หรือ WebP'
-                    : 'อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่',
+                    ? t('fileTypeError')
+                    : t('uploadFail'),
           });
-          setMessage('อัปโหลดรูปไม่สำเร็จ ข้อมูลในฟอร์มยังอยู่ครบ');
+          setMessage(t('uploadFailKeep'));
           focusProblem('photo-input');
           return;
         }
@@ -458,35 +458,35 @@ export default function App() {
       });
 
       if (error) {
-        setMessage('เชื่อมต่อระบบรับเรื่องไม่สำเร็จ ข้อมูลในฟอร์มยังอยู่ครบ กรุณาลองใหม่');
+        setMessage(t('serviceConnectFail'));
         return;
       }
 
       if (!data?.ok) {
         if (data?.code === 'RATE_LIMITED') {
-          setMessage('ส่งเรื่องบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่');
+          setMessage(t('submitRate'));
         } else if (data?.code === 'OUTSIDE_BOLUANG') {
-          setFormErrors({ location: 'จุดที่เลือกอยู่นอกขอบเขตที่เซิร์ฟเวอร์อนุญาต' });
-          setMessage('ไม่สามารถส่งเรื่องได้ กรุณาตรวจสอบตำแหน่ง');
+          setFormErrors({ location: t('serverOutside') });
+          setMessage(t('submitLocationFail'));
           focusProblem('manual-location-picker');
         } else if (data?.code === 'LOCATION_NOT_CONFIRMED') {
-          setFormErrors({ location: 'กรุณายืนยันตำแหน่งก่อนส่งเรื่อง' });
-          setMessage('ยังไม่ได้ยืนยันตำแหน่ง');
+          setFormErrors({ location: t('confirmBeforeSubmit') });
+          setMessage(t('notConfirmed'));
           focusProblem('manual-location-picker');
         } else {
-          setMessage('ส่งเรื่องไม่สำเร็จ ข้อมูลในฟอร์มยังอยู่ครบ กรุณาลองใหม่');
+          setMessage(t('submitFail'));
         }
         return;
       }
 
       const trackingNo = data?.result?.tracking_no;
       if (!trackingNo) {
-        setMessage('บันทึกข้อมูลแล้วแต่ไม่ได้รับเลขติดตามกลับมา กรุณาแจ้งผู้ดูแลระบบก่อนส่งซ้ำ');
+        setMessage(t('noTrackingReturned'));
         return;
       }
 
       setLastTrackingNo(trackingNo);
-      setMessage('ส่งเรื่องสำเร็จ');
+      setMessage(t('submitSuccess'));
       setFormErrors({});
       e.currentTarget.reset();
       setPhotoFile(null);
@@ -496,7 +496,7 @@ export default function App() {
       setMapPickerOpen(false);
       setGpsMessage('');
     } catch {
-      setMessage('เกิดข้อผิดพลาดด้านเครือข่าย ข้อมูลในฟอร์มยังอยู่ครบ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+      setMessage(t('networkKeep'));
     } finally {
       setSubmitting(false);
     }
@@ -513,24 +513,24 @@ export default function App() {
     const last4 = phoneLast4.trim();
 
     if (!trackingNo) {
-      setTrackMessage('กรุณากรอกเลขติดตามเรื่อง');
+      setTrackMessage(t('trackingRequired'));
       focusProblem('tracking-input');
       return;
     }
 
     if (last4 && !/^\d{4}$/.test(last4)) {
-      setTrackMessage('หากกรอกเบอร์ยืนยัน ต้องเป็นตัวเลข 4 หลัก');
+      setTrackMessage(t('last4Error'));
       focusProblem('tracking-phone-input');
       return;
     }
 
     if (demo || !supabase) {
-      setTrackMessage('โหมดสาธิตไม่ได้เชื่อมข้อมูลติดตามจริง');
+      setTrackMessage(t('demoNoTrack'));
       return;
     }
 
     setTrackingLoading(true);
-    setTrackMessage('กำลังค้นหา…');
+    setTrackMessage(t('searching'));
 
     try {
       const { data, error } = await supabase.functions.invoke('public-api', {
@@ -544,15 +544,15 @@ export default function App() {
       });
 
       if (error) {
-        setTrackMessage('เชื่อมต่อเครือข่ายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+        setTrackMessage(t('networkFail'));
         return;
       }
 
       if (!data?.ok) {
         setTrackMessage(
           data?.code === 'RATE_LIMITED'
-            ? 'ค้นหาบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่'
-            : 'ระบบติดตามขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง',
+            ? t('trackRate')
+            : t('trackSystemFail'),
         );
         return;
       }
@@ -562,7 +562,7 @@ export default function App() {
       setTrackMessage(
         item
           ? ''
-          : 'ไม่พบข้อมูลที่ตรงกับข้อมูลที่ใช้ยืนยัน กรุณาตรวจสอบแล้วลองใหม่',
+          : t('trackNotFound'),
       );
     } catch {
       setTrackMessage('เชื่อมต่อเครือข่ายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
@@ -752,7 +752,7 @@ export default function App() {
 
                     {mapPickerOpen && (
                       <div className="location-picker-wrap">
-                        <Suspense fallback={<div className="map-loading">กำลังโหลดแผนที่...</div>}>
+                        <Suspense fallback={<div className="map-loading">{t('mapLoadingShort')}</div>}>
                           <LocationPicker
                             lat={lat}
                             lng={lng}
@@ -760,11 +760,11 @@ export default function App() {
                               setLat(nextLat);
                               setLng(nextLng);
                               setLocationConfirmed(false);
-                              setGpsMessage('ปักหมุดแล้ว กรุณาตรวจสอบจุดและกดยืนยัน');
+                              setGpsMessage(t('pinPlaced'));
                             }}
                             onOutside={() => {
                               setLocationConfirmed(false);
-                              setGpsMessage('เลือกไม่ได้: จุดนี้อยู่นอกเขตเทศบาลตำบลบ่อหลวง');
+                              setGpsMessage(t('outsideMunicipality'));
                             }}
                           />
                         </Suspense>
@@ -776,11 +776,11 @@ export default function App() {
                             onClick={() => {
                               if (lat === null || lng === null || !isInsideBoLuang(lat, lng)) {
                                 setLocationConfirmed(false);
-                                setGpsMessage('กรุณาแตะบนแผนที่เพื่อปักหมุดภายในเขตเทศบาลตำบลบ่อหลวง');
+                                setGpsMessage(t('tapPinFirst'));
                                 return;
                               }
                               setLocationConfirmed(true);
-                              setGpsMessage('✓ ยืนยันหมุดแล้ว พร้อมส่งเข้า GIS/QGIS');
+                              setGpsMessage(t('pinReady'));
                             }}
                           >
                             {locationConfirmed ? t('confirmedPin') : t('confirmPin')}
@@ -792,7 +792,7 @@ export default function App() {
                               setLat(null);
                               setLng(null);
                               setLocationConfirmed(false);
-                              setGpsMessage('ล้างหมุดแล้ว กรุณาปักจุดใหม่');
+                              setGpsMessage(t('pinCleared'));
                             }}
                           >
                             {t('clearPin')}
@@ -853,7 +853,7 @@ export default function App() {
               </section>
 
               <aside className="card">
-                <h3>บริการหลัก</h3>
+                <h3>{t('mainServices')}</h3>
                 <div className="list">
                   <button
                     className="item service-button"
@@ -862,20 +862,20 @@ export default function App() {
                       openManualLocationPicker();
                     }}
                   >
-                    📍 ปักหมุดจุดเกิดเหตุ
+                    {t('servicePin')}
                   </button>
                   <button
                     className="item service-button"
                     type="button"
                     onClick={() => document.getElementById('photo-input')?.click()}
                   >
-                    📷 หลักฐานภาพ
+                    {t('servicePhoto')}
                   </button>
                   <button className="item service-button" type="button" onClick={() => setPage('track')}>
-                    🔎 ติดตามสถานะด้วยเลข BLM
+                    {t('serviceTrack')}
                   </button>
                   <button className="item service-button" type="button" onClick={() => setPage('staff')}>
-                    🔐 เข้าสู่ระบบเจ้าหน้าที่/ผู้บริหาร
+                    {t('serviceLogin')}
                   </button>
                 </div>
               </aside>
@@ -920,8 +920,8 @@ export default function App() {
 
             {trackMessage && (
               <div
-                className={trackMessage.startsWith('กำลังค้นหา') ? 'muted track-message' : 'notice track-message'}
-                role={trackMessage.startsWith('กำลังค้นหา') ? 'status' : 'alert'}
+                className={trackingLoading ? 'muted track-message' : 'notice track-message'}
+                role={trackingLoading ? 'status' : 'alert'}
                 aria-live="polite"
               >
                 {trackMessage}
@@ -975,7 +975,7 @@ export default function App() {
                       <h1>{t('staffCenter')}</h1>
                       {profile && (
                         <p>
-                          {profile.display_name || 'เจ้าหน้าที่'} · {profile.role}
+                          {profile.display_name || t('staffDefault')} · {localizeRole(profile.role, language)}
                           {profile.department ? ' · ' + profile.department : ''}
                         </p>
                       )}
@@ -983,7 +983,7 @@ export default function App() {
                     {!demo && session && (
                       <div className="row">
                         <button className="btn secondary" onClick={() => setShowClosed((value) => !value)}>
-                          {showClosed ? 'ซ่อนเรื่องที่ปิดแล้ว' : `ดูเรื่องที่ปิดแล้ว (${closedCount})`}
+                          {showClosed ? t('hideClosed') : `${t('viewClosed')} (${closedCount})`}
                         </button>
                         <button className="btn secondary" onClick={() => void loadProfileAndIncidents(session.user.id)}>
                           {t('refresh')}
@@ -1004,23 +1004,23 @@ export default function App() {
                   <section className="card admin-profile-card">
                     <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <h2>จัดการสิทธิ์บัญชีเจ้าหน้าที่</h2>
-                        <p className="muted">จัดการเฉพาะบัญชีที่มี profile อยู่แล้ว ระบบนี้ไม่สร้างหรือลบรหัสผ่านของผู้ใช้ Auth</p>
+                        <h2>{t('adminRoles')}</h2>
+                        <p className="muted">{t('adminRolesHelp')}</p>
                       </div>
                       <button className="btn secondary" type="button" onClick={() => void loadAdminProfiles()}>
-                        รีเฟรชบัญชี
+                        {t('refreshAccounts')}
                       </button>
                     </div>
 
                     {adminProfileMessage && <div className="notice" aria-live="polite">{adminProfileMessage}</div>}
-                    {adminProfilesLoading && <div className="muted">กำลังโหลดบัญชี…</div>}
+                    {adminProfilesLoading && <div className="muted">{t('accountsLoading')}</div>}
 
                     {!adminProfilesLoading && (
                       <div className="admin-profile-list">
                         {adminProfiles.map((account) => (
                           <div className="admin-profile-row" key={account.id}>
                             <label className="field">
-                              ชื่อแสดง
+                              {t('displayName')}
                               <input
                                 value={account.display_name || ''}
                                 onChange={(e) => setAdminProfiles((current) => current.map((p) =>
@@ -1029,7 +1029,7 @@ export default function App() {
                               />
                             </label>
                             <label className="field">
-                              บทบาท
+                              {t('role')}
                               <select
                                 value={account.role}
                                 disabled={account.id === session?.user.id}
@@ -1037,26 +1037,26 @@ export default function App() {
                                   p.id === account.id ? { ...p, role: e.target.value as AppRole } : p
                                 ))}
                               >
-                                <option value="citizen">ประชาชน</option>
-                                <option value="staff">เจ้าหน้าที่</option>
-                                <option value="department">ฝ่ายงาน</option>
-                                <option value="executive">ผู้บริหาร</option>
-                                <option value="admin">ผู้ดูแลระบบ</option>
+                                <option value="citizen">{localizeRole('citizen', language)}</option>
+                                <option value="staff">{localizeRole('staff', language)}</option>
+                                <option value="department">{localizeRole('department', language)}</option>
+                                <option value="executive">{localizeRole('executive', language)}</option>
+                                <option value="admin">{localizeRole('admin', language)}</option>
                               </select>
-                              {account.id === session?.user.id && <span className="muted">ไม่ให้ลดสิทธิ์บัญชีตัวเองจากหน้านี้</span>}
+                              {account.id === session?.user.id && <span className="muted">{t('selfRoleLock')}</span>}
                             </label>
                             <label className="field">
-                              หน่วยงาน
+                              {t('department')}
                               <input
                                 value={account.department || ''}
                                 onChange={(e) => setAdminProfiles((current) => current.map((p) =>
                                   p.id === account.id ? { ...p, department: e.target.value } : p
                                 ))}
-                                placeholder="เช่น กองช่าง"
+                                placeholder={t('departmentPlaceholder')}
                               />
                             </label>
                             <button className="btn primary" type="button" onClick={() => void saveAdminProfile(account)}>
-                              บันทึก
+                              {t('save')}
                             </button>
                           </div>
                         ))}
@@ -1068,7 +1068,7 @@ export default function App() {
                 {!staffLoading && canViewStaff && (
                   <div className="list">
                     {activeStaffItems.length === 0 && (
-                      <div className="card">{showClosed ? 'ยังไม่มีเรื่องที่ปิดแล้ว' : 'ไม่มีงานที่กำลังเปิดอยู่'}</div>
+                      <div className="card">{showClosed ? t('noClosed') : t('noOpen')}</div>
                     )}
                     {activeStaffItems.map((i) => (
                       <div className="item" key={i.id}>
@@ -1085,13 +1085,13 @@ export default function App() {
                         <p>{i.description}</p>
 
                         {i.assigned_department && (
-                          <p className="muted">หน่วยงาน: {i.assigned_department}</p>
+                          <p className="muted">{t('department')}: {i.assigned_department}</p>
                         )}
 
                         {i.photo_url && (
                           <p>
                             <button className="btn secondary" onClick={() => void openEvidence(i.photo_url!)}>
-                              📷 เปิดรูปหลักฐาน
+                              {t('openEvidence')}
                             </button>
                           </p>
                         )}
@@ -1102,7 +1102,7 @@ export default function App() {
                               ตรวจสอบ
                             </button>
                             <button className="btn secondary" onClick={() => void updateStatus(i, 'IN_PROGRESS')}>
-                              รับดำเนินการ
+                              {t('takeAction')}
                             </button>
                             <button className="btn primary" onClick={() => void updateStatus(i, 'DONE')}>
                               ดำเนินการแล้ว
@@ -1133,8 +1133,8 @@ export default function App() {
 
             {demo && (
               <section className="card">
-                <h2>GIS Live ต้องเชื่อม Supabase จริง</h2>
-                <p className="muted">ปิด Demo mode เพื่อดูข้อมูล Realtime</p>
+                <h2>{t('gisNeedsLive')}</h2>
+                <p className="muted">{t('disableDemo')}</p>
               </section>
             )}
 
