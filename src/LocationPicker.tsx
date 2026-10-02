@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { BO_LUANG_BOUNDARY, BO_LUANG_BOUNDARY_SOURCE, isInsideBoLuang } from './boLuangBoundary';
+import { BO_LUANG_BOUNDARY, isInsideBoLuang } from './boLuangBoundary';
+import { useI18n } from './i18n';
 
 type Props = {
   lat: number | null;
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export default function LocationPicker({ lat, lng, onChange, onOutside }: Props) {
+  const { t } = useI18n();
   const mapElement = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -53,7 +55,7 @@ export default function LocationPicker({ lat, lng, onChange, onOutside }: Props)
       tiles.once('load', () => setMapLoading(false));
       tiles.on('tileerror', () => {
         setMapLoading(false);
-        setMapError('โหลดแผนที่พื้นหลังไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+        setMapError(t('mapLoadFail'));
       });
       tiles.addTo(map);
 
@@ -119,7 +121,7 @@ export default function LocationPicker({ lat, lng, onChange, onOutside }: Props)
       mapRef.current = map;
     } catch {
       setMapLoading(false);
-      setMapError('ไม่สามารถเปิดแผนที่ได้');
+      setMapError(t('mapLoadFail'));
     }
 
     return () => {
@@ -150,21 +152,21 @@ export default function LocationPicker({ lat, lng, onChange, onOutside }: Props)
   return (
     <div>
       <div className="map-frame">
-        <div ref={mapElement} className="location-map" aria-label="แผนที่ปักหมุดตำแหน่งเหตุ" />
-        {mapLoading && <div className="map-overlay" role="status">กำลังโหลดแผนที่…</div>}
+        <div ref={mapElement} className="location-map" aria-label={t('incidentLocation')} />
+        {mapLoading && <div className="map-overlay" role="status">{t('mapLoading')}</div>}
         {mapError && (
           <div className="map-overlay map-error" role="alert">
             <span>{mapError}</span>
             <button className="btn secondary" type="button" onClick={() => setRetryKey((v) => v + 1)}>
-              ลองใหม่
+              {t('retry')}
             </button>
           </div>
         )}
       </div>
       <div className="muted location-map-help">
-        แตะบนแผนที่เพื่อปักหมุด หรือลากหมุด 📍 ไปยังจุดเกิดเหตุจริง
+        {t('mapHelp')}
       </div>
-      <div className="boundary-note">{BO_LUANG_BOUNDARY_SOURCE}</div>
+      <div className="boundary-note">{t('boundaryNote')}</div>
     </div>
   );
 }
