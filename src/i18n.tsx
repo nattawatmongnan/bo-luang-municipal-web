@@ -212,6 +212,7 @@ const dictionaries = {
     closeArea: 'ปิดพื้นที่',
     installPending: 'กำลังติดตั้งแอป…',
     installCancelled: 'ยกเลิกการติดตั้งแล้ว คุณสามารถกดติดตั้งใหม่ภายหลังได้',
+    gisSearchPlaceholder: 'เลข BLM / หัวข้อ / หมู่บ้าน / หน่วยงาน',
   },
   en: {
     language: 'Language', thai: 'ไทย', english: 'English', chinese: '中文',
@@ -353,6 +354,7 @@ const dictionaries = {
     closeArea: 'Close area',
     installPending: 'Installing app…',
     installCancelled: 'Installation cancelled. You can try again later.',
+    gisSearchPlaceholder: 'BLM number / title / village / department',
   },
   zh: {
     language: '语言', thai: 'ไทย', english: 'English', chinese: '中文',
@@ -492,6 +494,7 @@ const dictionaries = {
     closeArea: '关闭区域',
     installPending: '正在安装应用…',
     installCancelled: '已取消安装，稍后可以再次尝试',
+    gisSearchPlaceholder: 'BLM 编号 / 标题 / 村庄 / 部门',
   },
 } as const;
 
@@ -659,4 +662,34 @@ export function localizeUrgency(value: string, language: Language) {
 
 export function localizeEmergencyKind(value: string, language: Language) {
   return emergencyKindTranslations[language][value] || value;
+}
+
+
+const systemNoteTranslations: Record<Language, Record<string, string>> = {
+  th: {
+    'เจ้าหน้าที่กำลังดำเนินการ': 'เจ้าหน้าที่กำลังดำเนินการ',
+    'ดำเนินการเรียบร้อย': 'ดำเนินการเรียบร้อย',
+    'ปิดเรื่องแล้ว': 'ปิดเรื่องแล้ว',
+    'เจ้าหน้าที่กำลังตรวจสอบ': 'เจ้าหน้าที่กำลังตรวจสอบ',
+    'เจ้าหน้าที่อัปเดตสถานะ': 'เจ้าหน้าที่อัปเดตสถานะ',
+  },
+  en: {
+    'เจ้าหน้าที่กำลังดำเนินการ': 'Municipal staff are working on this case',
+    'ดำเนินการเรียบร้อย': 'Work completed',
+    'ปิดเรื่องแล้ว': 'Case closed',
+    'เจ้าหน้าที่กำลังตรวจสอบ': 'Municipal staff are verifying the case',
+    'เจ้าหน้าที่อัปเดตสถานะ': 'Status updated by municipal staff',
+  },
+  zh: {
+    'เจ้าหน้าที่กำลังดำเนินการ': '市政工作人员正在处理此事件',
+    'ดำเนินการเรียบร้อย': '处理已完成',
+    'ปิดเรื่องแล้ว': '事件已关闭',
+    'เจ้าหน้าที่กำลังตรวจสอบ': '市政工作人员正在核实',
+    'เจ้าหน้าที่อัปเดตสถานะ': '市政工作人员已更新状态',
+  },
+};
+
+export function localizeSystemNote(value: string | null | undefined, language: Language) {
+  if (!value) return '';
+  return systemNoteTranslations[language][value] || value;
 }
