@@ -5,6 +5,32 @@ import { isInsideBoLuang } from './boLuangBoundary';
 import PWAInstall from './PWAInstall';
 import { LanguageSwitcher, localizeCategory, localizeRole, localizeStatus, localizeSystemNote, localizeVillage, useI18n } from './i18n';
 
+type SpeechRecognitionEventLike = Event & {
+  results: {
+    [index: number]: {
+      [index: number]: { transcript: string };
+      isFinal?: boolean;
+    };
+    length: number;
+  };
+};
+
+type SpeechRecognitionErrorEventLike = Event & { error?: string };
+
+type SpeechRecognitionInstance = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
 const LocationPicker = lazy(() => import('./LocationPicker'));
 const GISDashboard = lazy(() => import('./GISDashboard'));
 
@@ -103,8 +129,18 @@ export default function App() {
   const [locationConfirmed, setLocationConfirmed] = useState(false);
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [gpsMessage, setGpsMessage] = useState('');
+  const [voiceAssistEnabled, setVoiceAssistEnabled] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState('');
+  const [listeningField, setListeningField] = useState<'title' | 'description' | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const demo = !supabaseConfigured || import.meta.env.VITE_DEMO_MODE === 'true';
+
+  useEffect(() => {
+    return () => {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    };
+  }, []);
 
   useEffect(() => {
     if (!supabase || demo) return;
@@ -372,6 +408,117 @@ export default function App() {
     } finally {
       setResolutionUploadingId(null);
     }
+  }
+
+  function speakText(text: string) {
+    if (!('speechSynthesis' in window)) {
+      setVoiceStatus(t('speechUnsupported'));
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = locale;
+    utterance.rate = 0.92;
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      setVoiceStatus(t('speechError'));
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function stopSpeaking() {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  }
+
+  function toggleVoiceAssist() {
+    const next = !voiceAssistEnabled;
+    setVoiceAssistEnabled(next);
+    stopSpeaking();
+    setVoiceStatus(next ? t('voiceAssistOn') : t('voiceAssistOff'));
+    if (next) {
+      window.setTimeout(() => speakText(t('voiceGuideSpeech')), 80);
+    }
+  }
+
+  function getRecognitionConstructor(): SpeechRecognitionConstructor | null {
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    return speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition || null;
+  }
+
+  function startVoiceInput(field: 'title' | 'description') {
+    const Recognition = getRecognitionConstructor();
+    if (!Recognition) {
+      setVoiceStatus(t('speechUnsupported'));
+      speakText(t('speechUnsupported'));
+      return;
+    }
+
+    stopSpeaking();
+    const recognition = new Recognition();
+    recognition.lang = locale;
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    setListeningField(field);
+    setVoiceStatus(t('listening'));
+
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim() || '';
+      const targetId = field === 'title' ? 'title-input' : 'description-input';
+      const target = document.getElementById(targetId) as HTMLInputElement | HTMLTextAreaElement | null;
+      if (target && transcript) {
+        const setter = Object.getOwnPropertyDescriptor(
+          target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+          'value',
+        )?.set;
+        setter?.call(target, transcript);
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+        target.focus();
+      }
+      setVoiceStatus(transcript || t('speechError'));
+    };
+    recognition.onerror = () => {
+      setVoiceStatus(t('speechError'));
+      setListeningField(null);
+    };
+    recognition.onend = () => setListeningField(null);
+
+    try {
+      recognition.start();
+    } catch {
+      setVoiceStatus(t('speechError'));
+      setListeningField(null);
+    }
+  }
+
+  function readFormSummary() {
+    const form = document.getElementById('citizen-report-form') as HTMLFormElement | null;
+    if (!form) return;
+
+    const data = new FormData(form);
+    const category = String(data.get('category') || '');
+    const village = String(data.get('village') || '');
+    const urgency = String(data.get('urgency') || '');
+    const title = String(data.get('title') || '').trim();
+    const description = String(data.get('description') || '').trim();
+
+    const parts = [
+      t('summaryIntro'),
+      `${t('summaryCategory')}: ${localizeCategory(category, language)}`,
+      `${t('summaryVillage')}: ${village ? localizeVillage(village, language) : t('chooseVillage')}`,
+      `${t('summaryUrgency')}: ${urgency === 'LOW' ? t('low') : urgency === 'HIGH' ? t('high') : t('medium')}`,
+      `${t('summaryTitle')}: ${title || t('summaryMissing')}`,
+      `${t('summaryDescription')}: ${description || t('summaryMissing')}`,
+      locationConfirmed ? t('summaryLocationReady') : t('summaryLocationMissing'),
+    ];
+
+    speakText(parts.join('. '));
   }
 
   function openManualLocationPicker() {
@@ -702,7 +849,41 @@ export default function App() {
             <div className="grid">
               <section className="card citizen-form-card">
                 <h2>{t('reportForm')}</h2>
-                <form onSubmit={submit}>
+                <div className={voiceAssistEnabled ? 'voice-assist-panel active' : 'voice-assist-panel'}>
+                  <div className="voice-assist-head">
+                    <div>
+                      <b>🔊 {t('voiceAssist')}</b>
+                      <p className="muted">{t('voiceGuide')}</p>
+                    </div>
+                    <button
+                      className={voiceAssistEnabled ? 'btn primary voice-toggle' : 'btn secondary voice-toggle'}
+                      type="button"
+                      aria-pressed={voiceAssistEnabled}
+                      onClick={toggleVoiceAssist}
+                    >
+                      {voiceAssistEnabled ? '✓ ' + t('voiceAssistOn') : t('voiceAssist')}
+                    </button>
+                  </div>
+                  {voiceAssistEnabled && (
+                    <>
+                      <div className="row voice-actions">
+                        <button className="btn secondary" type="button" onClick={() => speakText(t('voiceGuideSpeech'))}>
+                          {t('readPage')}
+                        </button>
+                        {isSpeaking && (
+                          <button className="btn secondary" type="button" onClick={stopSpeaking}>
+                            {t('stopReading')}
+                          </button>
+                        )}
+                        <button className="btn secondary" type="button" onClick={readFormSummary}>
+                          {t('readSummary')}
+                        </button>
+                      </div>
+                      {voiceStatus && <div className="voice-status" role="status" aria-live="polite">{voiceStatus}</div>}
+                    </>
+                  )}
+                </div>
+                <form id="citizen-report-form" onSubmit={submit}>
                   <div className="grid">
                     <label className="field">
                       {t('category')}
@@ -758,6 +939,16 @@ export default function App() {
                       aria-invalid={Boolean(formErrors.title)}
                       aria-describedby={formErrors.title ? 'title-error' : undefined}
                     />
+                    {voiceAssistEnabled && (
+                      <button
+                        className="btn secondary voice-field-button"
+                        type="button"
+                        onClick={() => startVoiceInput('title')}
+                        disabled={listeningField !== null}
+                      >
+                        {listeningField === 'title' ? t('listening') : t('speakTitle')}
+                      </button>
+                    )}
                     {formErrors.title && <span id="title-error" className="field-error" role="alert">{formErrors.title}</span>}
                   </label>
 
@@ -770,6 +961,16 @@ export default function App() {
                       aria-invalid={Boolean(formErrors.description)}
                       aria-describedby={formErrors.description ? 'description-error' : undefined}
                     />
+                    {voiceAssistEnabled && (
+                      <button
+                        className="btn secondary voice-field-button"
+                        type="button"
+                        onClick={() => startVoiceInput('description')}
+                        disabled={listeningField !== null}
+                      >
+                        {listeningField === 'description' ? t('listening') : t('speakDescription')}
+                      </button>
+                    )}
                     {formErrors.description && <span id="description-error" className="field-error" role="alert">{formErrors.description}</span>}
                   </label>
 
