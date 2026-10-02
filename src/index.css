@@ -135,3 +135,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .language-switcher{align-self:stretch;justify-content:center}
   .language-switcher button{flex:1}
 }
+
+.before-after-block{margin:14px 0;padding-top:12px;border-top:1px solid #e2e8f0}
+.before-after-block h3{margin:0 0 10px}
+.before-after-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.evidence-card{display:flex;flex-direction:column;gap:9px;padding:12px;border:1px solid #dbeafe;border-radius:14px;background:#f8fbff}
+.resolution-upload{display:grid;gap:8px;margin-top:4px}
+.resolution-upload input[type="file"]{width:100%;min-width:0}
+@media(max-width:650px){
+  .before-after-grid{grid-template-columns:1fr}
+}
