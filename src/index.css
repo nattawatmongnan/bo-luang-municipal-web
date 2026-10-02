@@ -121,3 +121,17 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .admin-profile-row{grid-template-columns:1fr}
   .gis-live-map{height:380px}
 }
+
+.top-actions{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.language-switcher{display:inline-flex;gap:4px;padding:4px;border-radius:999px;background:#ffffff1f;border:1px solid #ffffff35}
+.language-switcher button{min-height:34px;border:0;border-radius:999px;padding:5px 10px;background:transparent;color:#fff;font-weight:800;cursor:pointer}
+.language-switcher button.active{background:#fff;color:#066b54}
+.language-switcher button:focus-visible{outline:3px solid #bae6fd;outline-offset:2px}
+@media(max-width:850px){
+  .top-actions{width:100%;align-items:stretch}
+  .language-switcher{align-self:flex-end}
+}
+@media(max-width:390px){
+  .language-switcher{align-self:stretch;justify-content:center}
+  .language-switcher button{flex:1}
+}
