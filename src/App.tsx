@@ -1068,10 +1068,10 @@ export default function App() {
                           <div>
                             <b>{i.title}</b>
                             <div className="muted">
-                              {i.tracking_no} · {i.village} · {i.category}
+                              {i.tracking_no} · {localizeVillage(i.village, language)} · {localizeCategory(i.category, language)}
                             </div>
                           </div>
-                          <span className="status">{labels[i.status] || i.status}</span>
+                          <span className="status">{localizeStatus(i.status, language)}</span>
                         </div>
 
                         <p>{i.description}</p>
