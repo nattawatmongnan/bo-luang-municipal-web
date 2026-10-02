@@ -41,20 +41,6 @@ const severityColor: Record<string, string> = {
   HIGH: '#dc2626',
 };
 
-const severityLabel: Record<string, string> = {
-  LOW: 'ทั่วไป',
-  MEDIUM: 'เฝ้าระวัง',
-  HIGH: 'รุนแรง/ฉุกเฉิน',
-};
-
-const statusLabel: Record<string, string> = {
-  RECEIVED: 'รับเรื่องแล้ว',
-  VERIFYING: 'กำลังตรวจสอบ',
-  IN_PROGRESS: 'กำลังดำเนินการ',
-  DONE: 'ดำเนินการแล้ว',
-  CLOSED: 'ปิดเรื่อง',
-};
-
 function escapeHtml(value: string) {
   return value
     .replaceAll('&', '&amp;')
