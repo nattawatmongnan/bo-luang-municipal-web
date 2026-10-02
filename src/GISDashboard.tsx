@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from './lib/supabase';
+import { localizeStatus, localizeVillage, useI18n } from './i18n';
 import { BO_LUANG_BOUNDARY, isInsideBoLuang } from './boLuangBoundary';
 
 type IncidentPoint = {
@@ -55,6 +56,7 @@ const statusLabel: Record<string, string> = {
 };
 
 export default function GISDashboard({ userId, canWrite }: Props) {
+  const { language, t, locale } = useI18n();
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const incidentLayerRef = useRef<L.LayerGroup | null>(null);
@@ -315,10 +317,10 @@ export default function GISDashboard({ userId, canWrite }: Props) {
     <div className="gis-live">
       <div className="row gis-toolbar">
         <div>
-          <b>GIS Live · เทศบาลตำบลบ่อหลวง</b>
-          <div className="muted">{liveStatus} · หมุดเหตุ {incidents.length} จุด · พื้นที่ฉุกเฉิน {areas.filter((a) => a.active).length} พื้นที่</div>
+          <b>{t('gisTitle')}</b>
+          <div className="muted">{liveStatus} · {t('incidentPoints')} {incidents.length} · {t('emergencyAreas')} {areas.filter((a) => a.active).length}</div>
         </div>
-        <button className="btn secondary" type="button" onClick={() => void reload()}>รีเฟรช</button>
+        <button className="btn secondary" type="button" onClick={() => void reload()}>{t('refresh')}</button>
       </div>
 
       {canWrite && (
@@ -374,19 +376,19 @@ export default function GISDashboard({ userId, canWrite }: Props) {
           <label className="field">
             สถานะ
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="ACTIVE">เฉพาะงานที่ยังเปิดอยู่</option>
-              <option value="ALL">ทั้งหมด</option>
-              <option value="RECEIVED">รับเรื่องแล้ว</option>
-              <option value="VERIFYING">กำลังตรวจสอบ</option>
-              <option value="IN_PROGRESS">กำลังดำเนินการ</option>
-              <option value="DONE">ดำเนินการแล้ว</option>
-              <option value="CLOSED">ปิดเรื่อง</option>
+              <option value="ACTIVE">{t('activeOnly')}</option>
+              <option value="ALL">{t('all')}</option>
+              <option value="RECEIVED">{localizeStatus('RECEIVED', language)}</option>
+              <option value="VERIFYING">{localizeStatus('VERIFYING', language)}</option>
+              <option value="IN_PROGRESS">{localizeStatus('IN_PROGRESS', language)}</option>
+              <option value="DONE">{localizeStatus('DONE', language)}</option>
+              <option value="CLOSED">{localizeStatus('CLOSED', language)}</option>
             </select>
           </label>
           <label className="field">
             ความรุนแรง
             <select value={urgencyFilter} onChange={(e) => setUrgencyFilter(e.target.value)}>
-              <option value="ALL">ทุกระดับ</option>
+              <option value="ALL">{t('everyLevel')}</option>
               <option value="HIGH">รุนแรง/ฉุกเฉิน</option>
               <option value="MEDIUM">เฝ้าระวัง</option>
               <option value="LOW">ทั่วไป</option>
@@ -395,28 +397,28 @@ export default function GISDashboard({ userId, canWrite }: Props) {
           <label className="field">
             หมู่บ้าน
             <select value={villageFilter} onChange={(e) => setVillageFilter(e.target.value)}>
-              <option value="ALL">ทุกหมู่บ้าน</option>
-              {villages.map((village) => <option value={village} key={village}>{village}</option>)}
+              <option value="ALL">{t('everyVillage')}</option>
+              {villages.map((village) => <option value={village} key={village}>{localizeVillage(village, language)}</option>)}
             </select>
           </label>
         </div>
-        <div className="muted">แสดง {filteredIncidents.length} จาก {incidents.length} จุด</div>
+        <div className="muted">{t('showing')} {filteredIncidents.length} {t('from')} {incidents.length} {t('points')}</div>
       </section>
 
       <div className="gis-severity-legend" aria-label="คำอธิบายระดับความรุนแรง">
         <span><i className="legend-dot low" />ทั่วไป</span>
         <span><i className="legend-dot medium" />เฝ้าระวัง</span>
         <span><i className="legend-dot high" />รุนแรง/ฉุกเฉิน</span>
-        <span className="muted">👤 = จุดแจ้งเหตุจากประชาชน</span>
+        <span className="muted">{t('publicPoint')}</span>
       </div>
 
       <div ref={mapEl} className="gis-live-map" aria-label="แผนที่ GIS แบบ Realtime" />
 
       <div className="gis-below-grid">
         <section className="card">
-          <h3>รายการจุดที่กำลังแสดง</h3>
+          <h3>{t('shownPoints')}</h3>
           <div className="gis-incident-list">
-            {filteredIncidents.length === 0 && <div className="muted">ไม่มีจุดที่ตรงกับตัวกรอง</div>}
+            {filteredIncidents.length === 0 && <div className="muted">{t('noMatch')}</div>}
             {filteredIncidents.slice(0, 50).map((item) => (
               <button
                 className={'gis-incident-row ' + (selectedIncident?.id === item.id ? 'active' : '')}
@@ -430,30 +432,30 @@ export default function GISDashboard({ userId, canWrite }: Props) {
                 }}
               >
                 <span className="gis-incident-title">{item.title}</span>
-                <span className="muted">{item.tracking_no} · {item.village}</span>
-                <span>{severityLabel[item.urgency] || item.urgency} · {statusLabel[item.status] || item.status}</span>
+                <span className="muted">{item.tracking_no} · {localizeVillage(item.village, language)}</span>
+                <span>{severityLabel[item.urgency] || item.urgency} · {localizeStatus(item.status, language)}</span>
               </button>
             ))}
           </div>
         </section>
 
         <section className="card">
-          <h3>รายละเอียดจุด</h3>
+          <h3>{t('pointDetail')}</h3>
           {!selectedIncident ? (
-            <p className="muted">แตะหมุดหรือเลือกรายการเพื่อดูรายละเอียด</p>
+            <p className="muted">{t('choosePoint')}</p>
           ) : (
             <div className="gis-detail">
               <b>{selectedIncident.title}</b>
               <div className="muted">{selectedIncident.tracking_no}</div>
-              <p>ประเภท: {selectedIncident.category}</p>
-              <p>พื้นที่: {selectedIncident.village}</p>
-              <p>ความรุนแรง: {severityLabel[selectedIncident.urgency] || selectedIncident.urgency}</p>
-              <p>สถานะ: {statusLabel[selectedIncident.status] || selectedIncident.status}</p>
-              {selectedIncident.assigned_department && <p>หน่วยงาน: {selectedIncident.assigned_department}</p>}
-              {selectedIncident.public_note && <p>อัปเดต: {selectedIncident.public_note}</p>}
-              {selectedIncident.created_at && <p className="muted">รับเรื่อง: {new Date(selectedIncident.created_at).toLocaleString('th-TH')}</p>}
+              <p>{t('type')}: {selectedIncident.category}</p>
+              <p>{t('area')}: {localizeVillage(selectedIncident.village, language)}</p>
+              <p>{t('severity')}: {severityLabel[selectedIncident.urgency] || selectedIncident.urgency}</p>
+              <p>{t('status')}: {localizeStatus(selectedIncident.status, language)}</p>
+              {selectedIncident.assigned_department && <p>{t('department')}: {selectedIncident.assigned_department}</p>}
+              {selectedIncident.public_note && <p>{t('update')}: {selectedIncident.public_note}</p>}
+              {selectedIncident.created_at && <p className="muted">{t('receivedAt')}: {new Date(selectedIncident.created_at).toLocaleString(locale)}</p>}
               {selectedIncident.lat !== null && selectedIncident.lng !== null && (
-                <p className="muted">พิกัด: {selectedIncident.lat.toFixed(6)}, {selectedIncident.lng.toFixed(6)}</p>
+                <p className="muted">{t('coordinate')}: {selectedIncident.lat.toFixed(6)}, {selectedIncident.lng.toFixed(6)}</p>
               )}
             </div>
           )}
