@@ -32,6 +32,8 @@ type Incident = {
   assigned_department?: string | null;
   public_note?: string | null;
   photo_url?: string | null;
+  resolution_photo_url?: string | null;
+  resolution_photo_added_at?: string | null;
 };
 
 const demoSeed: Incident[] = [
@@ -94,6 +96,8 @@ export default function App() {
   const [adminProfilesLoading, setAdminProfilesLoading] = useState(false);
   const [adminProfileMessage, setAdminProfileMessage] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [resolutionFiles, setResolutionFiles] = useState<Record<string, File | null>>({});
+  const [resolutionUploadingId, setResolutionUploadingId] = useState<string | null>(null);
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
   const [locationConfirmed, setLocationConfirmed] = useState(false);
@@ -156,7 +160,7 @@ export default function App() {
 
     const { data: incidents, error } = await supabase
       .from('municipal_incidents')
-      .select('id,tracking_no,category,title,description,village,house_number,urgency,status,created_at,assigned_department,public_note,photo_url')
+      .select('id,tracking_no,category,title,description,village,house_number,urgency,status,created_at,assigned_department,public_note,photo_url,resolution_photo_url,resolution_photo_added_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -298,6 +302,76 @@ export default function App() {
     }
 
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  }
+
+  async function uploadResolutionPhoto(incident: Incident) {
+    if (!supabase || !session || !profile || !writableRoles.includes(profile.role)) return;
+
+    const file = resolutionFiles[incident.id];
+    if (!file) {
+      setAuthMessage(t('chooseAfterPhoto'));
+      return;
+    }
+
+    const allowedTypes: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+    };
+    const extension = allowedTypes[file.type];
+
+    if (!extension) {
+      setAuthMessage(t('fileTypeError'));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAuthMessage(t('fileSizeError'));
+      return;
+    }
+
+    setResolutionUploadingId(incident.id);
+    setAuthMessage(t('afterPhotoUploading'));
+
+    const newPath = `staff-resolution/${incident.id}/${crypto.randomUUID()}.${extension}`;
+
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('incident-attachments')
+        .upload(newPath, file, {
+          contentType: file.type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        setAuthMessage(t('afterPhotoUploadFail'));
+        return;
+      }
+
+      const { error: saveError } = await supabase.rpc('set_resolution_photo', {
+        p_incident_id: incident.id,
+        p_photo_path: newPath,
+      });
+
+      if (saveError) {
+        await supabase.storage.from('incident-attachments').remove([newPath]);
+        setAuthMessage(t('afterPhotoSaveFail'));
+        return;
+      }
+
+      if (incident.resolution_photo_url && incident.resolution_photo_url !== newPath) {
+        await supabase.storage
+          .from('incident-attachments')
+          .remove([incident.resolution_photo_url]);
+      }
+
+      setResolutionFiles((current) => ({ ...current, [incident.id]: null }));
+      setAuthMessage(t('afterPhotoSaved'));
+      await loadProfileAndIncidents(session.user.id);
+    } catch {
+      setAuthMessage(t('afterPhotoUploadFail'));
+    } finally {
+      setResolutionUploadingId(null);
+    }
   }
 
   function openManualLocationPicker() {
@@ -1080,13 +1154,66 @@ export default function App() {
                           <p className="muted">{t('department')}: {i.assigned_department}</p>
                         )}
 
-                        {i.photo_url && (
-                          <p>
-                            <button className="btn secondary" onClick={() => void openEvidence(i.photo_url!)}>
-                              {t('openEvidence')}
-                            </button>
-                          </p>
-                        )}
+                        <section className="before-after-block">
+                          <h3>{t('beforeAfterTitle')}</h3>
+                          <div className="before-after-grid">
+                            <div className="evidence-card">
+                              <b>{t('beforePhoto')}</b>
+                              {i.photo_url ? (
+                                <button className="btn secondary" type="button" onClick={() => void openEvidence(i.photo_url!)}>
+                                  {t('openEvidence')}
+                                </button>
+                              ) : (
+                                <span className="muted">{t('noBeforePhoto')}</span>
+                              )}
+                            </div>
+
+                            <div className="evidence-card">
+                              <b>{t('afterPhoto')}</b>
+                              {i.resolution_photo_url ? (
+                                <>
+                                  <button className="btn secondary" type="button" onClick={() => void openEvidence(i.resolution_photo_url!)}>
+                                    {t('openEvidence')}
+                                  </button>
+                                  {i.resolution_photo_added_at && (
+                                    <span className="muted">
+                                      {t('photoAddedAt')}: {new Date(i.resolution_photo_added_at).toLocaleString(locale)}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="muted">{t('noAfterPhoto')}</span>
+                              )}
+
+                              {canWrite && (
+                                <div className="resolution-upload">
+                                  <input
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    aria-label={t('afterPhoto')}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0] || null;
+                                      setResolutionFiles((current) => ({ ...current, [i.id]: file }));
+                                    }}
+                                  />
+                                  <span className="muted">{t('afterPhotoHelp')}</span>
+                                  <button
+                                    className="btn primary"
+                                    type="button"
+                                    disabled={resolutionUploadingId === i.id}
+                                    onClick={() => void uploadResolutionPhoto(i)}
+                                  >
+                                    {resolutionUploadingId === i.id
+                                      ? t('afterPhotoUploading')
+                                      : i.resolution_photo_url
+                                        ? t('replaceAfterPhoto')
+                                        : t('uploadAfterPhoto')}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </section>
 
                         {canWrite && (
                           <div className="row">
