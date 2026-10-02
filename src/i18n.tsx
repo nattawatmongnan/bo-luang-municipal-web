@@ -267,3 +267,65 @@ export function LanguageSwitcher() {
     </div>
   );
 }
+
+
+const categoryTranslations: Record<Language, Record<string, string>> = {
+  th: {
+    'ถนน': 'ถนน', 'ไฟส่องสว่าง': 'ไฟส่องสว่าง', 'ขยะ': 'ขยะ', 'น้ำประปา': 'น้ำประปา',
+    'น้ำท่วม': 'น้ำท่วม', 'สัตว์รบกวน': 'สัตว์รบกวน', 'ความปลอดภัย': 'ความปลอดภัย', 'อื่นๆ': 'อื่นๆ',
+  },
+  en: {
+    'ถนน': 'Road', 'ไฟส่องสว่าง': 'Street lighting', 'ขยะ': 'Waste', 'น้ำประปา': 'Water supply',
+    'น้ำท่วม': 'Flooding', 'สัตว์รบกวน': 'Animal nuisance', 'ความปลอดภัย': 'Safety', 'อื่นๆ': 'Other',
+  },
+  zh: {
+    'ถนน': '道路', 'ไฟส่องสว่าง': '路灯', 'ขยะ': '垃圾', 'น้ำประปา': '供水',
+    'น้ำท่วม': '洪水', 'สัตว์รบกวน': '动物扰民', 'ความปลอดภัย': '安全', 'อื่นๆ': '其他',
+  },
+};
+
+const statusTranslations: Record<Language, Record<string, string>> = {
+  th: {
+    RECEIVED: 'รับเรื่องแล้ว', VERIFYING: 'กำลังตรวจสอบ', IN_PROGRESS: 'กำลังดำเนินการ',
+    DONE: 'ดำเนินการแล้ว', CLOSED: 'ปิดเรื่อง',
+  },
+  en: {
+    RECEIVED: 'Received', VERIFYING: 'Verifying', IN_PROGRESS: 'In progress',
+    DONE: 'Completed', CLOSED: 'Closed',
+  },
+  zh: {
+    RECEIVED: '已接收', VERIFYING: '核实中', IN_PROGRESS: '处理中',
+    DONE: '已完成', CLOSED: '已关闭',
+  },
+};
+
+const villageEnglish: Record<string, string> = {
+  'หมู่ที่ 1 บ้านบ่อหลวง': 'Moo 1 · Ban Bo Luang',
+  'หมู่ที่ 2 บ้านวังกอง': 'Moo 2 · Ban Wang Kong',
+  'หมู่ที่ 3 บ้านขุน': 'Moo 3 · Ban Khun',
+  'หมู่ที่ 4 บ้านนาฟ่อน': 'Moo 4 · Ban Na Fon',
+  'หมู่ที่ 5 บ้านแม่ลายเหนือ (รวมบ้านแม่ลายใต้)': 'Moo 5 · Ban Mae Lai Nuea (incl. Mae Lai Tai)',
+  'หมู่ที่ 6 บ้านแม่ลายใต้ / บ้านพุย (บางส่วน)': 'Moo 6 · Ban Mae Lai Tai / Ban Phui (part)',
+  'หมู่ที่ 7 บ้านพุย / บ้านกิ่วลม': 'Moo 7 · Ban Phui / Ban Kio Lom',
+  'หมู่ที่ 8 บ้านกิ่วลม / บ้านเตียนอาง': 'Moo 8 · Ban Kio Lom / Ban Tian Ang',
+  'หมู่ที่ 9 บ้านแม่สะนาม': 'Moo 9 · Ban Mae Sanam',
+  'หมู่ที่ 10 บ้านเตียนอาง': 'Moo 10 · Ban Tian Ang',
+  'หมู่ที่ 11 บ้านบ่อสะแง๋': 'Moo 11 · Ban Bo Sa Ngae',
+  'หมู่ที่ 12 บ้านบ่อพะแวน (ที่ตั้งสำนักงานเทศบาลตำบลบ่อหลวง)': 'Moo 12 · Ban Bo Pha Waen (Municipal Office)',
+  'หมู่ที่ 13 บ้านแม่หืด': 'Moo 13 · Ban Mae Huet',
+};
+
+export function localizeCategory(value: string, language: Language) {
+  return categoryTranslations[language][value] || value;
+}
+
+export function localizeStatus(value: string, language: Language) {
+  return statusTranslations[language][value] || value;
+}
+
+export function localizeVillage(value: string, language: Language) {
+  if (language === 'th') return value.replace(/^หมู่ที่ (\d+) /, 'หมู่ที่ $1 · ');
+  if (language === 'en') return villageEnglish[value] || value;
+  const english = villageEnglish[value];
+  return english ? english.replace(/^Moo/, '第').replace(' · ', '村 · ') : value;
+}
