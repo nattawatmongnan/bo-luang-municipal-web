@@ -87,9 +87,10 @@ export default function CareTrackerDemoAlerts() {
 
   useEffect(() => {
     void loadAlerts();
-    if (!supabase) return;
+    const client = supabase;
+    if (!client) return;
 
-    const channel = supabase
+    const channel = client
       .channel('care-tracker-demo-alerts-staff')
       .on(
         'postgres_changes',
@@ -105,7 +106,7 @@ export default function CareTrackerDemoAlerts() {
       });
 
     return () => {
-      void supabase.removeChannel(channel);
+      void client.removeChannel(channel);
     };
   }, [loadAlerts]);
 
