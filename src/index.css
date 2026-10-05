@@ -192,3 +192,5 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .care-demo-warning{align-items:flex-start;flex-direction:column}
   .care-demo-controls .btn{width:100%}
 }
+
+.care-demo-sync-status{font-size:.9rem;font-weight:700;color:#0f766e}
