@@ -55,7 +55,7 @@ const copy = {
   },
 } as const;
 
-function label(eventType: DemoAlert['event_type'], t: typeof copy.th) {
+function label(eventType: DemoAlert['event_type'], t: { sos: string; geofence: string; offline: string }) {
   if (eventType === 'SOS') return t.sos;
   if (eventType === 'GEOFENCE_ALERT') return t.geofence;
   return t.offline;
