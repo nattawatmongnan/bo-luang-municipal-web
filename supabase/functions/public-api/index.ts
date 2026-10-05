@@ -214,7 +214,7 @@ Deno.serve(async (req: Request) => {
       const lat = Number(payload?.lat);
       const lng = Number(payload?.lng);
 
-      const allowedEvents = new Set(['MOVE', 'SOS', 'LOW_BATTERY', 'OFFLINE', 'ONLINE', 'RESET']);
+      const allowedEvents = new Set(['MOVE', 'SOS', 'LOW_BATTERY', 'OFFLINE', 'ONLINE', 'RESET', 'GEOFENCE_ALERT', 'OFFLINE_ALERT']);
       const allowedStates = new Set(['ONLINE', 'OFFLINE', 'SOS']);
 
       if (
@@ -245,6 +245,8 @@ Deno.serve(async (req: Request) => {
         OFFLINE: 'Simulated offline',
         ONLINE: 'Simulated online',
         RESET: 'Demo reset',
+        GEOFENCE_ALERT: 'Simulated geofence alert',
+        OFFLINE_ALERT: 'Simulated offline timeout alert',
       };
 
       const { data, error } = await admin
