@@ -93,68 +93,7 @@ Deno.serve(async (req: Request) => {
       const action = String(form.get('action') || '');
 
       if (action !== 'upload') {
-        if (action === 'care_demo_event') {
-      const eventType = String(payload?.event_type || '').trim().toUpperCase();
-      const deviceState = String(payload?.device_state || '').trim().toUpperCase();
-      const battery = Number(payload?.battery);
-      const lat = Number(payload?.lat);
-      const lng = Number(payload?.lng);
-
-      const allowedEvents = new Set(['MOVE', 'SOS', 'LOW_BATTERY', 'OFFLINE', 'ONLINE', 'RESET']);
-      const allowedStates = new Set(['ONLINE', 'OFFLINE', 'SOS']);
-
-      if (
-        !allowedEvents.has(eventType) ||
-        !allowedStates.has(deviceState) ||
-        !Number.isInteger(battery) ||
-        battery < 0 ||
-        battery > 100 ||
-        !Number.isFinite(lat) ||
-        !Number.isFinite(lng) ||
-        lat < -90 ||
-        lat > 90 ||
-        lng < -180 ||
-        lng > 180
-      ) {
-        return json({ ok: false, code: 'INVALID_DEMO_EVENT' }, 200, origin);
-      }
-
-      const { data: limitData, error: limitError } = await admin.rpc('consume_care_tracker_demo_rate_limit');
-      if (limitError || limitData !== true) {
-        return json({ ok: false, code: 'RATE_LIMITED' }, 200, origin);
-      }
-
-      const noteByEvent: Record<string, string> = {
-        MOVE: 'Simulated movement',
-        SOS: 'Simulated SOS',
-        LOW_BATTERY: 'Simulated low battery',
-        OFFLINE: 'Simulated offline',
-        ONLINE: 'Simulated online',
-        RESET: 'Demo reset',
-      };
-
-      const { data, error } = await admin
-        .from('care_tracker_demo_events')
-        .insert({
-          device_id: 'DEMO-TRACKER-001',
-          event_type: eventType,
-          device_state: deviceState,
-          battery,
-          lat,
-          lng,
-          note: noteByEvent[eventType] ?? 'Demo event',
-        })
-        .select('id,device_id,event_type,device_state,battery,lat,lng,created_at')
-        .single();
-
-      if (error) {
-        return json({ ok: false, code: 'DEMO_EVENT_SAVE_FAILED' }, 200, origin);
-      }
-
-      return json({ ok: true, result: data }, 200, origin);
-    }
-
-    return json({ ok: false, code: 'UNKNOWN_ACTION' }, 400, origin);
+        return json({ ok: false, code: 'UNKNOWN_ACTION' }, 400, origin);
       }
 
       const file = form.get('file');
@@ -266,6 +205,67 @@ Deno.serve(async (req: Request) => {
 
       const result = Array.isArray(data) ? (data[0] ?? null) : (data ?? null);
       return json({ ok: true, result }, 200, origin);
+    }
+
+    if (action === 'care_demo_event') {
+      const eventType = String(payload?.event_type || '').trim().toUpperCase();
+      const deviceState = String(payload?.device_state || '').trim().toUpperCase();
+      const battery = Number(payload?.battery);
+      const lat = Number(payload?.lat);
+      const lng = Number(payload?.lng);
+
+      const allowedEvents = new Set(['MOVE', 'SOS', 'LOW_BATTERY', 'OFFLINE', 'ONLINE', 'RESET']);
+      const allowedStates = new Set(['ONLINE', 'OFFLINE', 'SOS']);
+
+      if (
+        !allowedEvents.has(eventType) ||
+        !allowedStates.has(deviceState) ||
+        !Number.isInteger(battery) ||
+        battery < 0 ||
+        battery > 100 ||
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng) ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180
+      ) {
+        return json({ ok: false, code: 'INVALID_DEMO_EVENT' }, 200, origin);
+      }
+
+      const { data: limitData, error: limitError } = await admin.rpc('consume_care_tracker_demo_rate_limit');
+      if (limitError || limitData !== true) {
+        return json({ ok: false, code: 'RATE_LIMITED' }, 200, origin);
+      }
+
+      const noteByEvent: Record<string, string> = {
+        MOVE: 'Simulated movement',
+        SOS: 'Simulated SOS',
+        LOW_BATTERY: 'Simulated low battery',
+        OFFLINE: 'Simulated offline',
+        ONLINE: 'Simulated online',
+        RESET: 'Demo reset',
+      };
+
+      const { data, error } = await admin
+        .from('care_tracker_demo_events')
+        .insert({
+          device_id: 'DEMO-TRACKER-001',
+          event_type: eventType,
+          device_state: deviceState,
+          battery,
+          lat,
+          lng,
+          note: noteByEvent[eventType] ?? 'Demo event',
+        })
+        .select('id,device_id,event_type,device_state,battery,lat,lng,created_at')
+        .single();
+
+      if (error) {
+        return json({ ok: false, code: 'DEMO_EVENT_SAVE_FAILED' }, 200, origin);
+      }
+
+      return json({ ok: true, result: data }, 200, origin);
     }
 
     return json({ ok: false, code: 'UNKNOWN_ACTION' }, 400, origin);
