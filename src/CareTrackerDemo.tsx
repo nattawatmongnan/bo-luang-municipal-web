@@ -146,7 +146,7 @@ export default function CareTrackerDemo() {
   const [timeline, setTimeline] = useState<TimelineItem[]>([
     { id: 'start', at: new Date(), text: copy[language].resetEvent },
   ]);
-  const [syncStatus, setSyncStatus] = useState(copy[language].syncIdle);
+  const [syncStatus, setSyncStatus] = useState<string>(copy[language].syncIdle);
 
   const currentPoint = ROUTE[routeIndex];
 
