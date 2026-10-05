@@ -16,7 +16,7 @@ create table if not exists public.care_tracker_demo_events (
   constraint care_tracker_demo_device_chk
     check (device_id ~ '^DEMO-TRACKER-[0-9]{3}$'),
   constraint care_tracker_demo_event_chk
-    check (event_type in ('MOVE','SOS','LOW_BATTERY','OFFLINE','ONLINE','RESET')),
+    check (event_type in ('MOVE','SOS','LOW_BATTERY','OFFLINE','ONLINE','RESET','GEOFENCE_ALERT','OFFLINE_ALERT')),
   constraint care_tracker_demo_state_chk
     check (device_state in ('ONLINE','OFFLINE','SOS')),
   constraint care_tracker_demo_lat_chk
@@ -51,3 +51,19 @@ $$;
 
 revoke all on function public.consume_care_tracker_demo_rate_limit() from public, anon, authenticated;
 grant execute on function public.consume_care_tracker_demo_rate_limit() to service_role;
+
+
+-- Enable staff Realtime inserts for the demo alert panel.
+-- Run only if the table is not already in the publication.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'care_tracker_demo_events'
+  ) then
+    alter publication supabase_realtime add table public.care_tracker_demo_events;
+  end if;
+end $$;
