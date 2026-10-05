@@ -45,6 +45,12 @@ const copy = {
     lowBattery: '🔋 จำลองแบตต่ำ',
     toggleOffline: '📡 จำลองออฟไลน์',
     backOnline: '📶 กลับมาออนไลน์',
+    geofence: '🚧 จำลองออกนอกพื้นที่ปลอดภัย',
+    safeZone: 'พื้นที่ปลอดภัยจำลอง',
+    offlineCountdown: 'จะแจ้งเตือนออฟไลน์ใน',
+    seconds: 'วินาที',
+    geofenceEvent: 'ออกนอกพื้นที่ปลอดภัยจำลอง',
+    offlineAlertEvent: 'ไม่พบสัญญาณครบ 15 วินาที — แจ้งเตือนออฟไลน์จำลอง',
     reset: '↺ รีเซ็ตการทดลอง',
     moved: 'อุปกรณ์ส่งตำแหน่งจำลองใหม่',
     sosEvent: 'ได้รับสัญญาณ SOS จำลอง',
@@ -79,6 +85,12 @@ const copy = {
     lowBattery: '🔋 Simulate low battery',
     toggleOffline: '📡 Simulate offline',
     backOnline: '📶 Back online',
+    geofence: '🚧 Simulate leaving safe zone',
+    safeZone: 'Simulated safe zone',
+    offlineCountdown: 'Offline alert in',
+    seconds: 'seconds',
+    geofenceEvent: 'Left the simulated safe zone',
+    offlineAlertEvent: 'No signal for 15 seconds — simulated offline alert',
     reset: '↺ Reset demo',
     moved: 'Demo device sent a new simulated position',
     sosEvent: 'Simulated SOS signal received',
@@ -113,6 +125,12 @@ const copy = {
     lowBattery: '🔋 模拟低电量',
     toggleOffline: '📡 模拟离线',
     backOnline: '📶 恢复在线',
+    geofence: '🚧 模拟离开安全区域',
+    safeZone: '模拟安全区域',
+    offlineCountdown: '离线警报倒计时',
+    seconds: '秒',
+    geofenceEvent: '已离开模拟安全区域',
+    offlineAlertEvent: '15 秒未收到信号 — 模拟离线警报',
     reset: '↺ 重置演示',
     moved: '模拟设备发送了新的位置',
     sosEvent: '收到模拟 SOS 信号',
@@ -147,6 +165,7 @@ export default function CareTrackerDemo() {
     { id: 'start', at: new Date(), text: copy[language].resetEvent },
   ]);
   const [syncStatus, setSyncStatus] = useState<string>(copy[language].syncIdle);
+  const [offlineSeconds, setOfflineSeconds] = useState<number | null>(null);
 
   const currentPoint = ROUTE[routeIndex];
 
@@ -166,7 +185,7 @@ export default function CareTrackerDemo() {
   }
 
   async function saveDemoEvent(
-    eventType: 'MOVE' | 'SOS' | 'LOW_BATTERY' | 'OFFLINE' | 'ONLINE' | 'RESET',
+    eventType: 'MOVE' | 'SOS' | 'LOW_BATTERY' | 'OFFLINE' | 'ONLINE' | 'RESET' | 'GEOFENCE_ALERT' | 'OFFLINE_ALERT',
     nextState: DeviceState,
     nextBattery: number,
     point: [number, number],
@@ -215,6 +234,13 @@ export default function CareTrackerDemo() {
       attribution: '&copy; OpenStreetMap',
     }).addTo(map);
 
+    L.circle(ROUTE[0], {
+      radius: 700,
+      color: '#16a34a',
+      weight: 2,
+      fillOpacity: 0.05,
+    }).bindTooltip(t.safeZone).addTo(map);
+
     L.polygon(BO_LUANG_BOUNDARY, {
       color: '#0f766e',
       weight: 2,
@@ -254,6 +280,27 @@ export default function CareTrackerDemo() {
   }, [currentPoint, history]);
 
   useEffect(() => {
+    if (deviceState !== 'OFFLINE') {
+      setOfflineSeconds(null);
+      return;
+    }
+    setOfflineSeconds(15);
+    const timer = window.setInterval(() => {
+      setOfflineSeconds((value) => {
+        if (value === null) return null;
+        if (value <= 1) {
+          window.clearInterval(timer);
+          pushEvent(t.offlineAlertEvent);
+          void saveDemoEvent('OFFLINE_ALERT', 'OFFLINE', battery, currentPoint);
+          return 0;
+        }
+        return value - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [deviceState]);
+
+  useEffect(() => {
     setTimeline((items) =>
       items.map((item, index) =>
         index === items.length - 1 && item.id === 'start'
@@ -281,6 +328,16 @@ export default function CareTrackerDemo() {
     setDeviceState('SOS');
     pushEvent(t.sosEvent);
     void saveDemoEvent('SOS', 'SOS', battery, currentPoint);
+  }
+
+  function simulateGeofence() {
+    if (deviceState === 'OFFLINE') return;
+    const outsidePoint: [number, number] = [ROUTE[0][0] + 0.012, ROUTE[0][1] + 0.012];
+    setHistory((points) => [...points, outsidePoint].slice(-12));
+    markerRef.current?.setLatLng(outsidePoint);
+    mapRef.current?.panTo(outsidePoint, { animate: true });
+    pushEvent(t.geofenceEvent);
+    void saveDemoEvent('GEOFENCE_ALERT', deviceState, battery, outsidePoint);
   }
 
   function simulateLowBattery() {
@@ -353,6 +410,9 @@ export default function CareTrackerDemo() {
           <button className="btn danger" type="button" onClick={simulateSos} disabled={deviceState === 'OFFLINE'}>
             {t.sosButton}
           </button>
+          <button className="btn secondary" type="button" onClick={simulateGeofence} disabled={deviceState === 'OFFLINE'}>
+            {t.geofence}
+          </button>
           <button className="btn secondary" type="button" onClick={simulateLowBattery}>
             {t.lowBattery}
           </button>
@@ -369,6 +429,11 @@ export default function CareTrackerDemo() {
         <div className="care-demo-sync-status" role="status" aria-live="polite">
           {syncStatus}
         </div>
+        {deviceState === 'OFFLINE' && offlineSeconds !== null && (
+          <div className="care-demo-offline-countdown">
+            {t.offlineCountdown}: <b>{offlineSeconds}</b> {t.seconds}
+          </div>
+        )}
       </div>
 
       <div className="care-demo-main-grid">
