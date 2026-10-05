@@ -12,6 +12,9 @@ create table if not exists public.care_tracker_demo_events (
   lat double precision,
   lng double precision,
   note text,
+  alert_status text not null default 'NEW' check (alert_status in ('NEW','ACCEPTED')),
+  accepted_at timestamptz,
+  accepted_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   constraint care_tracker_demo_device_chk
     check (device_id ~ '^DEMO-TRACKER-[0-9]{3}$'),
@@ -67,3 +70,59 @@ begin
     alter publication supabase_realtime add table public.care_tracker_demo_events;
   end if;
 end $$;
+
+
+-- Staff acknowledgement for demo alerts.
+revoke update on table public.care_tracker_demo_events from anon, authenticated;
+
+create or replace function private.accept_care_tracker_demo_alert(p_event_id uuid)
+returns table (
+  id uuid,
+  alert_status text,
+  accepted_at timestamptz,
+  accepted_by uuid
+)
+language plpgsql
+security definer
+set search_path = public, private, auth
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'UNAUTHENTICATED';
+  end if;
+
+  if private.current_role() not in ('staff','department','admin') then
+    raise exception 'FORBIDDEN';
+  end if;
+
+  return query
+  update public.care_tracker_demo_events e
+  set
+    alert_status = 'ACCEPTED',
+    accepted_at = coalesce(e.accepted_at, now()),
+    accepted_by = coalesce(e.accepted_by, auth.uid())
+  where e.id = p_event_id
+    and e.event_type in ('SOS','GEOFENCE_ALERT','OFFLINE_ALERT')
+  returning e.id, e.alert_status, e.accepted_at, e.accepted_by;
+end;
+$$;
+
+revoke all on function private.accept_care_tracker_demo_alert(uuid) from public, anon;
+grant execute on function private.accept_care_tracker_demo_alert(uuid) to authenticated;
+
+create or replace function public.accept_care_tracker_demo_alert(p_event_id uuid)
+returns table (
+  id uuid,
+  alert_status text,
+  accepted_at timestamptz,
+  accepted_by uuid
+)
+language sql
+security invoker
+set search_path = public, private
+as $$
+  select * from private.accept_care_tracker_demo_alert(p_event_id);
+$$;
+
+revoke all on function public.accept_care_tracker_demo_alert(uuid) from public, anon;
+grant execute on function public.accept_care_tracker_demo_alert(uuid) to authenticated;
