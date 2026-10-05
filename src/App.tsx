@@ -34,6 +34,7 @@ type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
 const LocationPicker = lazy(() => import('./LocationPicker'));
 const GISDashboard = lazy(() => import('./GISDashboard'));
 const CareTrackerDemo = lazy(() => import('./CareTrackerDemo'));
+const CareTrackerDemoAlerts = lazy(() => import('./CareTrackerDemoAlerts'));
 
 type Page = 'citizen' | 'track' | 'staff' | 'gis' | 'care-demo' | 'executive';
 type AppRole = 'citizen' | 'staff' | 'department' | 'executive' | 'admin';
@@ -1268,6 +1269,12 @@ export default function App() {
                 {authMessage && <div className="notice">{authMessage}</div>}
 
                 {staffLoading && <div className="card">{t('loading')}</div>}
+
+                {!demo && !staffLoading && session && canViewStaff && (
+                  <Suspense fallback={<div className="card map-loading">Loading Care Tracker alerts...</div>}>
+                    <CareTrackerDemoAlerts />
+                  </Suspense>
+                )}
 
                 {!staffLoading && profile?.role === 'admin' && (
                   <section className="card admin-profile-card">
