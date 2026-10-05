@@ -209,3 +209,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .care-demo-badge{display:inline-flex;padding:4px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:.75rem;font-weight:900;letter-spacing:.08em}
 .care-alert-meta{display:flex;gap:8px 14px;flex-wrap:wrap;margin-top:8px;color:#64748b;font-size:.88rem}
 @media(max-width:640px){.care-alert-header{flex-direction:column}.care-alert-header>.row{width:100%}.care-alert-header .btn{width:100%}}
+
+.care-alert-status{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:.75rem;font-weight:900}
+.care-alert-status.new{background:#fef3c7;color:#92400e}
+.care-alert-status.accepted{background:#dcfce7;color:#166534}
+.care-alert-actions{display:flex;justify-content:flex-end;margin-top:10px}
+.care-alert-accepted-note{display:inline-flex;align-items:center;padding:8px 10px;border-radius:10px;background:#ecfdf5;color:#166534;font-weight:800}
+@media(max-width:520px){.care-alert-actions .btn{width:100%}}
