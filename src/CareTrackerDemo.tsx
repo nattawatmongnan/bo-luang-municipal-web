@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BO_LUANG_BOUNDARY } from './boLuangBoundary';
 import { useI18n } from './i18n';
+import { supabase } from './lib/supabase';
 
 type DeviceState = 'ONLINE' | 'OFFLINE' | 'SOS';
 
@@ -51,7 +52,12 @@ const copy = {
     offlineEvent: 'อุปกรณ์จำลองหยุดส่งข้อมูล',
     onlineEvent: 'อุปกรณ์จำลองกลับมาเชื่อมต่อ',
     resetEvent: 'เริ่มการทดลองใหม่',
-    noRealData: 'ไม่มีการเชื่อม GPS จริง / SIM / Supabase ในหน้านี้',
+    noRealData: 'ไม่มีการเชื่อม GPS หรือ SIM จริง แต่เหตุการณ์จำลองจะถูกบันทึกเข้า Supabase',
+    syncIdle: 'พร้อมบันทึกเหตุการณ์เข้า Supabase',
+    syncSaving: 'กำลังบันทึกเข้า Supabase…',
+    syncSaved: 'บันทึกเหตุการณ์เข้า Supabase แล้ว',
+    syncFailed: 'บันทึกเข้า Supabase ไม่สำเร็จ',
+    syncRate: 'ทดลองถี่เกินไป กรุณารอสักครู่',
   },
   en: {
     title: 'Care Tracker Demo',
@@ -80,7 +86,12 @@ const copy = {
     offlineEvent: 'Demo device stopped sending data',
     onlineEvent: 'Demo device came back online',
     resetEvent: 'Demo restarted',
-    noRealData: 'No real GPS / SIM / Supabase connection is used on this page',
+    noRealData: 'No real GPS or SIM is used; simulated events are saved to Supabase',
+    syncIdle: 'Ready to save demo events to Supabase',
+    syncSaving: 'Saving to Supabase…',
+    syncSaved: 'Demo event saved to Supabase',
+    syncFailed: 'Could not save the demo event to Supabase',
+    syncRate: 'Too many demo events. Please wait a moment.',
   },
   zh: {
     title: 'Care Tracker Demo',
@@ -109,7 +120,12 @@ const copy = {
     offlineEvent: '模拟设备停止发送数据',
     onlineEvent: '模拟设备恢复连接',
     resetEvent: '重新开始演示',
-    noRealData: '本页面不连接真实 GPS / SIM / Supabase',
+    noRealData: '本页面不连接真实 GPS 或 SIM；模拟事件会保存到 Supabase',
+    syncIdle: '已准备将模拟事件保存到 Supabase',
+    syncSaving: '正在保存到 Supabase…',
+    syncSaved: '模拟事件已保存到 Supabase',
+    syncFailed: '无法保存到 Supabase',
+    syncRate: '模拟操作过于频繁，请稍后再试',
   },
 } as const;
 
@@ -130,6 +146,7 @@ export default function CareTrackerDemo() {
   const [timeline, setTimeline] = useState<TimelineItem[]>([
     { id: 'start', at: new Date(), text: copy[language].resetEvent },
   ]);
+  const [syncStatus, setSyncStatus] = useState(copy[language].syncIdle);
 
   const currentPoint = ROUTE[routeIndex];
 
@@ -146,6 +163,43 @@ export default function CareTrackerDemo() {
       { id: crypto.randomUUID(), at: now, text },
       ...items,
     ].slice(0, 10));
+  }
+
+  async function saveDemoEvent(
+    eventType: 'MOVE' | 'SOS' | 'LOW_BATTERY' | 'OFFLINE' | 'ONLINE' | 'RESET',
+    nextState: DeviceState,
+    nextBattery: number,
+    point: [number, number],
+  ) {
+    if (!supabase) {
+      setSyncStatus(t.syncFailed);
+      return;
+    }
+
+    setSyncStatus(t.syncSaving);
+    try {
+      const { data, error } = await supabase.functions.invoke('public-api', {
+        body: {
+          action: 'care_demo_event',
+          payload: {
+            event_type: eventType,
+            device_state: nextState,
+            battery: nextBattery,
+            lat: point[0],
+            lng: point[1],
+          },
+        },
+      });
+
+      if (error || !data?.ok) {
+        setSyncStatus(data?.code === 'RATE_LIMITED' ? t.syncRate : t.syncFailed);
+        return;
+      }
+
+      setSyncStatus(t.syncSaved);
+    } catch {
+      setSyncStatus(t.syncFailed);
+    }
   }
 
   useEffect(() => {
@@ -213,31 +267,37 @@ export default function CareTrackerDemo() {
     if (deviceState === 'OFFLINE') return;
     const nextIndex = (routeIndex + 1) % ROUTE.length;
     const nextPoint = ROUTE[nextIndex];
+    const nextBattery = Math.max(5, battery - 2);
     setRouteIndex(nextIndex);
     setHistory((points) => [...points, nextPoint].slice(-12));
-    setBattery((value) => Math.max(5, value - 2));
+    setBattery(nextBattery);
     if (deviceState === 'SOS') setDeviceState('ONLINE');
     pushEvent(t.moved);
+    void saveDemoEvent('MOVE', 'ONLINE', nextBattery, nextPoint);
   }
 
   function simulateSos() {
     if (deviceState === 'OFFLINE') return;
     setDeviceState('SOS');
     pushEvent(t.sosEvent);
+    void saveDemoEvent('SOS', 'SOS', battery, currentPoint);
   }
 
   function simulateLowBattery() {
     setBattery(12);
     pushEvent(t.batteryEvent);
+    void saveDemoEvent('LOW_BATTERY', deviceState, 12, currentPoint);
   }
 
   function toggleOffline() {
     if (deviceState === 'OFFLINE') {
       setDeviceState('ONLINE');
       pushEvent(t.onlineEvent);
+      void saveDemoEvent('ONLINE', 'ONLINE', battery, currentPoint);
     } else {
       setDeviceState('OFFLINE');
       pushEvent(t.offlineEvent);
+      void saveDemoEvent('OFFLINE', 'OFFLINE', battery, currentPoint);
     }
   }
 
@@ -250,6 +310,7 @@ export default function CareTrackerDemo() {
     setLastUpdate(now);
     setTimeline([{ id: crypto.randomUUID(), at: now, text: t.resetEvent }]);
     mapRef.current?.setView(ROUTE[0], 14);
+    void saveDemoEvent('RESET', 'ONLINE', 86, ROUTE[0]);
   }
 
   return (
@@ -304,6 +365,9 @@ export default function CareTrackerDemo() {
         </div>
         <div className="muted care-demo-last-update">
           {t.lastUpdate}: {lastUpdate.toLocaleString(locale)}
+        </div>
+        <div className="care-demo-sync-status" role="status" aria-live="polite">
+          {syncStatus}
         </div>
       </div>
 
