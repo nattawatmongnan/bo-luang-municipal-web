@@ -11,9 +11,13 @@ type DemoAlert = {
   lat: number | null;
   lng: number | null;
   created_at: string;
-  alert_status: 'NEW' | 'ACCEPTED';
+  alert_status: 'NEW' | 'ACCEPTED' | 'IN_PROGRESS' | 'CLOSED';
   accepted_at: string | null;
   accepted_by: string | null;
+  started_at: string | null;
+  started_by: string | null;
+  closed_at: string | null;
+  closed_by: string | null;
 };
 
 const copy = {
@@ -34,6 +38,15 @@ const copy = {
     accepted: 'รับเรื่องแล้ว',
     acceptedAt: 'เวลารับเรื่อง',
     acceptFail: 'รับเรื่องไม่สำเร็จ กรุณาลองใหม่',
+    startWork: 'เริ่มปฏิบัติงาน',
+    startingWork: 'กำลังเริ่มงาน…',
+    inProgress: 'กำลังปฏิบัติงาน',
+    startedAt: 'เริ่มปฏิบัติงาน',
+    closeCase: 'ปิดเรื่อง',
+    closingCase: 'กำลังปิดเรื่อง…',
+    closed: 'ปิดเรื่องแล้ว',
+    closedAt: 'เวลาปิดเรื่อง',
+    statusFail: 'อัปเดตสถานะไม่สำเร็จ กรุณาลองใหม่',
   },
   en: {
     title: 'Care Tracker Alerts (DEMO)',
@@ -52,6 +65,15 @@ const copy = {
     accepted: 'Accepted',
     acceptedAt: 'Accepted at',
     acceptFail: 'Could not accept this alert. Please try again.',
+    startWork: 'Start response',
+    startingWork: 'Starting…',
+    inProgress: 'Response in progress',
+    startedAt: 'Started at',
+    closeCase: 'Close case',
+    closingCase: 'Closing…',
+    closed: 'Closed',
+    closedAt: 'Closed at',
+    statusFail: 'Could not update the alert status. Please try again.',
   },
   zh: {
     title: 'Care Tracker 警报（演示）',
@@ -70,6 +92,15 @@ const copy = {
     accepted: '已接收',
     acceptedAt: '接收时间',
     acceptFail: '无法接收此警报，请重试',
+    startWork: '开始处理',
+    startingWork: '正在开始…',
+    inProgress: '处理中',
+    startedAt: '开始时间',
+    closeCase: '关闭事件',
+    closingCase: '正在关闭…',
+    closed: '已关闭',
+    closedAt: '关闭时间',
+    statusFail: '无法更新状态，请重试',
   },
 } as const;
 
@@ -86,12 +117,13 @@ export default function CareTrackerDemoAlerts() {
   const [message, setMessage] = useState('');
   const [realtimeState, setRealtimeState] = useState('…');
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const loadAlerts = useCallback(async () => {
     if (!supabase) return;
     const { data, error } = await supabase
       .from('care_tracker_demo_events')
-      .select('id,device_id,event_type,device_state,battery,lat,lng,created_at,alert_status,accepted_at,accepted_by')
+      .select('id,device_id,event_type,device_state,battery,lat,lng,created_at,alert_status,accepted_at,accepted_by,started_at,started_by,closed_at,closed_by')
       .in('event_type', ['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT'])
       .order('created_at', { ascending: false })
       .limit(12);
@@ -166,6 +198,48 @@ export default function CareTrackerDemoAlerts() {
     setAcceptingId(null);
   }
 
+  async function setAlertStatus(alert: DemoAlert, nextStatus: 'IN_PROGRESS' | 'CLOSED') {
+    if (!supabase) return;
+
+    setUpdatingId(alert.id);
+    setMessage('');
+    const { data, error } = await supabase.rpc('set_care_tracker_demo_alert_status', {
+      p_event_id: alert.id,
+      p_status: nextStatus,
+    });
+
+    if (error || !Array.isArray(data) || data.length === 0) {
+      setMessage(t.statusFail);
+      setUpdatingId(null);
+      return;
+    }
+
+    const updated = data[0] as Pick<
+      DemoAlert,
+      'id' | 'alert_status' | 'accepted_at' | 'accepted_by' |
+      'started_at' | 'started_by' | 'closed_at' | 'closed_by'
+    >;
+
+    setAlerts((current) => current.map((item) =>
+      item.id === updated.id ? { ...item, ...updated } : item
+    ));
+    setUpdatingId(null);
+  }
+
+  function statusText(alert: DemoAlert) {
+    if (alert.alert_status === 'CLOSED') return t.closed;
+    if (alert.alert_status === 'IN_PROGRESS') return t.inProgress;
+    if (alert.alert_status === 'ACCEPTED') return t.accepted;
+    return t.accept;
+  }
+
+  function statusClass(alert: DemoAlert) {
+    if (alert.alert_status === 'CLOSED') return 'closed';
+    if (alert.alert_status === 'IN_PROGRESS') return 'in-progress';
+    if (alert.alert_status === 'ACCEPTED') return 'accepted';
+    return 'new';
+  }
+
   return (
     <section className="card care-alert-panel">
       <div className="row care-alert-header">
@@ -194,8 +268,8 @@ export default function CareTrackerDemoAlerts() {
               </div>
               <div className="row">
                 <span className="care-demo-badge">DEMO</span>
-                <span className={alert.alert_status === 'ACCEPTED' ? 'care-alert-status accepted' : 'care-alert-status new'}>
-                  {alert.alert_status === 'ACCEPTED' ? t.accepted : t.accept}
+                <span className={`care-alert-status ${statusClass(alert)}`}>
+                  {statusText(alert)}
                 </span>
               </div>
             </div>
@@ -208,9 +282,15 @@ export default function CareTrackerDemoAlerts() {
               {alert.accepted_at && (
                 <span>{t.acceptedAt}: {new Date(alert.accepted_at).toLocaleString(locale)}</span>
               )}
+              {alert.started_at && (
+                <span>{t.startedAt}: {new Date(alert.started_at).toLocaleString(locale)}</span>
+              )}
+              {alert.closed_at && (
+                <span>{t.closedAt}: {new Date(alert.closed_at).toLocaleString(locale)}</span>
+              )}
             </div>
             <div className="care-alert-actions">
-              {alert.alert_status === 'NEW' ? (
+              {alert.alert_status === 'NEW' && (
                 <button
                   className="btn primary"
                   type="button"
@@ -219,8 +299,39 @@ export default function CareTrackerDemoAlerts() {
                 >
                   {acceptingId === alert.id ? t.accepting : t.accept}
                 </button>
-              ) : (
-                <div className="care-alert-accepted-note">✓ {t.accepted}</div>
+              )}
+              {alert.alert_status === 'ACCEPTED' && (
+                <>
+                  <button
+                    className="btn primary"
+                    type="button"
+                    disabled={updatingId === alert.id}
+                    onClick={() => void setAlertStatus(alert, 'IN_PROGRESS')}
+                  >
+                    {updatingId === alert.id ? t.startingWork : t.startWork}
+                  </button>
+                  <button
+                    className="btn secondary"
+                    type="button"
+                    disabled={updatingId === alert.id}
+                    onClick={() => void setAlertStatus(alert, 'CLOSED')}
+                  >
+                    {updatingId === alert.id ? t.closingCase : t.closeCase}
+                  </button>
+                </>
+              )}
+              {alert.alert_status === 'IN_PROGRESS' && (
+                <button
+                  className="btn primary"
+                  type="button"
+                  disabled={updatingId === alert.id}
+                  onClick={() => void setAlertStatus(alert, 'CLOSED')}
+                >
+                  {updatingId === alert.id ? t.closingCase : t.closeCase}
+                </button>
+              )}
+              {alert.alert_status === 'CLOSED' && (
+                <div className="care-alert-closed-note">✓ {t.closed}</div>
               )}
             </div>
           </article>
