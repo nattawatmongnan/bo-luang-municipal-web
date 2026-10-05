@@ -11,6 +11,9 @@ type DemoAlert = {
   lat: number | null;
   lng: number | null;
   created_at: string;
+  alert_status: 'NEW' | 'ACCEPTED';
+  accepted_at: string | null;
+  accepted_by: string | null;
 };
 
 const copy = {
@@ -26,6 +29,11 @@ const copy = {
     realtime: 'Realtime',
     refresh: 'รีเฟรช',
     loadFail: 'โหลดการแจ้งเตือนจำลองไม่สำเร็จ',
+    accept: 'รับเรื่อง',
+    accepting: 'กำลังรับเรื่อง…',
+    accepted: 'รับเรื่องแล้ว',
+    acceptedAt: 'เวลารับเรื่อง',
+    acceptFail: 'รับเรื่องไม่สำเร็จ กรุณาลองใหม่',
   },
   en: {
     title: 'Care Tracker Alerts (DEMO)',
@@ -39,6 +47,11 @@ const copy = {
     realtime: 'Realtime',
     refresh: 'Refresh',
     loadFail: 'Could not load demo alerts',
+    accept: 'Accept alert',
+    accepting: 'Accepting…',
+    accepted: 'Accepted',
+    acceptedAt: 'Accepted at',
+    acceptFail: 'Could not accept this alert. Please try again.',
   },
   zh: {
     title: 'Care Tracker 警报（演示）',
@@ -52,6 +65,11 @@ const copy = {
     realtime: '实时',
     refresh: '刷新',
     loadFail: '无法加载模拟警报',
+    accept: '接收警报',
+    accepting: '正在接收…',
+    accepted: '已接收',
+    acceptedAt: '接收时间',
+    acceptFail: '无法接收此警报，请重试',
   },
 } as const;
 
@@ -67,12 +85,13 @@ export default function CareTrackerDemoAlerts() {
   const [alerts, setAlerts] = useState<DemoAlert[]>([]);
   const [message, setMessage] = useState('');
   const [realtimeState, setRealtimeState] = useState('…');
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
   const loadAlerts = useCallback(async () => {
     if (!supabase) return;
     const { data, error } = await supabase
       .from('care_tracker_demo_events')
-      .select('id,device_id,event_type,device_state,battery,lat,lng,created_at')
+      .select('id,device_id,event_type,device_state,battery,lat,lng,created_at,alert_status,accepted_at,accepted_by')
       .in('event_type', ['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT'])
       .order('created_at', { ascending: false })
       .limit(12);
@@ -94,11 +113,13 @@ export default function CareTrackerDemoAlerts() {
       .channel('care-tracker-demo-alerts-staff')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'care_tracker_demo_events' },
+        { event: '*', schema: 'public', table: 'care_tracker_demo_events' },
         (payload) => {
           const row = payload.new as DemoAlert;
-          if (!['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT'].includes(row.event_type)) return;
-          setAlerts((current) => [row, ...current.filter((item) => item.id !== row.id)].slice(0, 12));
+          if (!row?.id || !['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT'].includes(row.event_type)) return;
+          setAlerts((current) => [row, ...current.filter((item) => item.id !== row.id)]
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 12));
         },
       )
       .subscribe((status) => {
@@ -109,6 +130,41 @@ export default function CareTrackerDemoAlerts() {
       void client.removeChannel(channel);
     };
   }, [loadAlerts]);
+
+  async function acceptAlert(alert: DemoAlert) {
+    if (!supabase || alert.alert_status === 'ACCEPTED') return;
+
+    setAcceptingId(alert.id);
+    setMessage('');
+    const { data, error } = await supabase.rpc('accept_care_tracker_demo_alert', {
+      p_event_id: alert.id,
+    });
+
+    if (error || !Array.isArray(data) || data.length === 0) {
+      setMessage(t.acceptFail);
+      setAcceptingId(null);
+      return;
+    }
+
+    const accepted = data[0] as {
+      id: string;
+      alert_status: 'ACCEPTED';
+      accepted_at: string;
+      accepted_by: string;
+    };
+
+    setAlerts((current) => current.map((item) =>
+      item.id === accepted.id
+        ? {
+            ...item,
+            alert_status: accepted.alert_status,
+            accepted_at: accepted.accepted_at,
+            accepted_by: accepted.accepted_by,
+          }
+        : item
+    ));
+    setAcceptingId(null);
+  }
 
   return (
     <section className="card care-alert-panel">
@@ -136,7 +192,12 @@ export default function CareTrackerDemoAlerts() {
                 <b>{label(alert.event_type, t)}</b>
                 <div className="muted">{alert.device_id}</div>
               </div>
-              <span className="care-demo-badge">DEMO</span>
+              <div className="row">
+                <span className="care-demo-badge">DEMO</span>
+                <span className={alert.alert_status === 'ACCEPTED' ? 'care-alert-status accepted' : 'care-alert-status new'}>
+                  {alert.alert_status === 'ACCEPTED' ? t.accepted : t.accept}
+                </span>
+              </div>
             </div>
             <div className="care-alert-meta">
               <span>{t.battery}: {alert.battery}%</span>
@@ -144,6 +205,23 @@ export default function CareTrackerDemoAlerts() {
                 <span>{t.location}: {alert.lat.toFixed(5)}, {alert.lng.toFixed(5)}</span>
               )}
               <span>{new Date(alert.created_at).toLocaleString(locale)}</span>
+              {alert.accepted_at && (
+                <span>{t.acceptedAt}: {new Date(alert.accepted_at).toLocaleString(locale)}</span>
+              )}
+            </div>
+            <div className="care-alert-actions">
+              {alert.alert_status === 'NEW' ? (
+                <button
+                  className="btn primary"
+                  type="button"
+                  disabled={acceptingId === alert.id}
+                  onClick={() => void acceptAlert(alert)}
+                >
+                  {acceptingId === alert.id ? t.accepting : t.accept}
+                </button>
+              ) : (
+                <div className="care-alert-accepted-note">✓ {t.accepted}</div>
+              )}
             </div>
           </article>
         ))}
