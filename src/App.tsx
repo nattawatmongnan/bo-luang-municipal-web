@@ -33,8 +33,9 @@ type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
 
 const LocationPicker = lazy(() => import('./LocationPicker'));
 const GISDashboard = lazy(() => import('./GISDashboard'));
+const CareTrackerDemo = lazy(() => import('./CareTrackerDemo'));
 
-type Page = 'citizen' | 'track' | 'staff' | 'gis' | 'executive';
+type Page = 'citizen' | 'track' | 'staff' | 'gis' | 'care-demo' | 'executive';
 type AppRole = 'citizen' | 'staff' | 'department' | 'executive' | 'admin';
 
 type Profile = {
@@ -818,6 +819,7 @@ export default function App() {
               ['track', t('track')],
               ['staff', t('staff')],
               ['gis', 'GIS Live'],
+              ['care-demo', language === 'th' ? 'Care Tracker ทดลอง' : language === 'zh' ? 'Care Tracker 演示' : 'Care Tracker Demo'],
               ['executive', t('executive')],
             ] as [Page, string][]).map(([p, l]) => (
               <button className={page === p ? 'active' : ''} onClick={() => setPage(p)} key={p}>
@@ -1474,6 +1476,12 @@ export default function App() {
               <div className="notice">{t('noGisPermission')}</div>
             )}
           </>
+        )}
+
+        {page === 'care-demo' && (
+          <Suspense fallback={<div className="card map-loading">Loading Care Tracker Demo...</div>}>
+            <CareTrackerDemo />
+          </Suspense>
         )}
 
         {page === 'executive' && (
