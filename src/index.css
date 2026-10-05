@@ -216,3 +216,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .care-alert-actions{display:flex;justify-content:flex-end;margin-top:10px}
 .care-alert-accepted-note{display:inline-flex;align-items:center;padding:8px 10px;border-radius:10px;background:#ecfdf5;color:#166534;font-weight:800}
 @media(max-width:520px){.care-alert-actions .btn{width:100%}}
+
+.care-alert-status.in-progress{background:#dbeafe;color:#1d4ed8}
+.care-alert-status.closed{background:#e2e8f0;color:#334155}
+.care-alert-actions{gap:8px;flex-wrap:wrap}
+.care-alert-closed-note{display:inline-flex;align-items:center;padding:8px 10px;border-radius:10px;background:#e2e8f0;color:#334155;font-weight:800}
