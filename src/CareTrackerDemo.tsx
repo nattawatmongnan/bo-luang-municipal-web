@@ -22,7 +22,7 @@ const MEDICATION_SCHEDULE: { slot: MedicationSlot; time: string }[] = [
   { slot: 'EVENING', time: '18:00' },
 ];
 
-const DEMO_HOME: [number, number] = [18.1465, 98.3465];
+const DEMO_HOMELESS_POINT: [number, number] = [18.1540, 98.3515];
 
 const ROUTE: [number, number][] = [
   [18.1450, 98.3480],
@@ -93,13 +93,9 @@ const copy = {
     medicationOverdueEvent: 'เลยเวลารับยารอบจำลอง — แจ้งเจ้าหน้าที่',
     todayProgress: 'สถานะรอบยาวันนี้',
     nextMedication: 'รอบถัดไป',
-    disabilityPin: 'หมุดผู้พิการจำลอง',
-    homePin: 'จุดบ้านจำลอง',
-    homePhoto: 'ภาพหน้าบ้านจำลอง',
-    homePhotoHelp: 'ภาพนี้เป็นภาพ DEMO ไม่ใช่บ้านจริง ใช้เพื่อจำลองการระบุตำแหน่งให้เจ้าหน้าที่เท่านั้น',
-    demoResident: 'ผู้พิการจำลอง',
-    demoHome: 'บ้านจำลองของ DEMO PERSON A',
-    homeCoordinate: 'พิกัดบ้านจำลอง',
+    disabilityPin: 'จุดผู้พิการจำลอง',
+    homelessPin: 'จุดคนไร้บ้านจำลอง',
+    homelessPerson: 'บุคคลไร้บ้านจำลอง',
   },
   en: {
     title: 'Care Tracker Demo',
@@ -158,13 +154,9 @@ const copy = {
     medicationOverdueEvent: 'Simulated medication reminder is overdue — staff alerted',
     todayProgress: 'Today’s reminder progress',
     nextMedication: 'Next reminder',
-    disabilityPin: 'Simulated disability marker',
-    homePin: 'Simulated home point',
-    homePhoto: 'Simulated home-front image',
-    homePhotoHelp: 'This is a DEMO image, not a real home. It is only for showing how staff could identify a location.',
-    demoResident: 'Simulated person with disability',
-    demoHome: 'Simulated home of DEMO PERSON A',
-    homeCoordinate: 'Simulated home coordinates',
+    disabilityPin: 'Simulated disability point',
+    homelessPin: 'Simulated homeless-person point',
+    homelessPerson: 'Simulated homeless person',
   },
   zh: {
     title: 'Care Tracker Demo',
@@ -223,13 +215,9 @@ const copy = {
     medicationOverdueEvent: '模拟用药提醒已超时 — 已通知工作人员',
     todayProgress: '今日提醒进度',
     nextMedication: '下一次提醒',
-    disabilityPin: '模拟残障人士标记',
-    homePin: '模拟住所位置',
-    homePhoto: '模拟住宅正面图',
-    homePhotoHelp: '此图仅为 DEMO，并非真实住宅，仅用于演示工作人员如何识别位置。',
-    demoResident: '模拟残障人士',
-    demoHome: 'DEMO PERSON A 的模拟住宅',
-    homeCoordinate: '模拟住宅坐标',
+    disabilityPin: '模拟残障人士位置',
+    homelessPin: '模拟无家可归者位置',
+    homelessPerson: '模拟无家可归者',
   },
 } as const;
 
@@ -241,7 +229,6 @@ export default function CareTrackerDemo() {
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const routeLayerRef = useRef<L.Polyline | null>(null);
-  const homeLineRef = useRef<L.Polyline | null>(null);
 
   const [routeIndex, setRouteIndex] = useState(0);
   const [battery, setBattery] = useState(86);
@@ -423,23 +410,17 @@ export default function CareTrackerDemo() {
       .bindTooltip('DEMO PERSON A', { direction: 'top', offset: [0, -22] })
       .addTo(map);
 
-    const homeIcon = L.divIcon({
-      className: 'care-demo-home-marker',
-      html: '<div class="care-demo-home-marker-dot">🏠</div>',
+    const homelessIcon = L.divIcon({
+      className: 'care-demo-homeless-marker',
+      html: '<div class="care-demo-homeless-marker-dot">🧍</div>',
       iconSize: [46, 46],
       iconAnchor: [23, 23],
     });
 
-    L.marker(DEMO_HOME, { icon: homeIcon, zIndexOffset: 100 })
-      .bindPopup('<b>DEMO HOME</b><br>Simulated home location — not a real address')
+    L.marker(DEMO_HOMELESS_POINT, { icon: homelessIcon, zIndexOffset: 200 })
+      .bindTooltip(t.homelessPerson, { direction: 'top', offset: [0, -20] })
+      .bindPopup('<b>DEMO PERSON B</b><br>Simulated homeless-person point — not a real person')
       .addTo(map);
-
-    homeLineRef.current = L.polyline([ROUTE[0], DEMO_HOME], {
-      color: '#7c3aed',
-      weight: 2,
-      dashArray: '6 8',
-      opacity: 0.75,
-    }).addTo(map);
 
     routeLayerRef.current = L.polyline([ROUTE[0]], {
       color: '#2563eb',
@@ -456,14 +437,12 @@ export default function CareTrackerDemo() {
       mapRef.current = null;
       markerRef.current = null;
       routeLayerRef.current = null;
-      homeLineRef.current = null;
     };
   }, []);
 
   useEffect(() => {
     markerRef.current?.setLatLng(currentPoint);
     routeLayerRef.current?.setLatLngs(history);
-    homeLineRef.current?.setLatLngs([currentPoint, DEMO_HOME]);
     mapRef.current?.panTo(currentPoint, { animate: true });
   }, [currentPoint, history]);
 
@@ -708,35 +687,8 @@ export default function CareTrackerDemo() {
           </div>
           <div className="care-demo-map-legend">
             <span>🧑‍🦽 {t.disabilityPin}</span>
-            <span>🏠 {t.homePin}</span>
+            <span>🧍 {t.homelessPin}</span>
           </div>
-        </div>
-
-        <div className="card care-demo-home-card">
-          <h2>{t.homePhoto}</h2>
-          <div className="care-demo-house-illustration" role="img" aria-label={t.homePhoto}>
-            <div className="care-demo-house-sky">
-              <span className="care-demo-sun">☀️</span>
-              <span className="care-demo-cloud">☁️</span>
-            </div>
-            <div className="care-demo-house-ground">
-              <div className="care-demo-house">
-                <div className="care-demo-house-roof" />
-                <div className="care-demo-house-wall">
-                  <span className="care-demo-window">▦</span>
-                  <span className="care-demo-door">▯</span>
-                </div>
-              </div>
-              <span className="care-demo-tree">🌳</span>
-            </div>
-            <span className="care-demo-photo-badge">DEMO HOUSE</span>
-          </div>
-          <div className="care-demo-home-info">
-            <b>{t.demoResident}</b>
-            <span>{t.demoHome}</span>
-            <span className="muted">{t.homeCoordinate}: {DEMO_HOME[0].toFixed(6)}, {DEMO_HOME[1].toFixed(6)}</span>
-          </div>
-          <p className="muted care-demo-home-help">{t.homePhotoHelp}</p>
         </div>
 
         <div className="card">
