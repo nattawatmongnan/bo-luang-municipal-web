@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from './lib/supabase';
 import { useI18n } from './i18n';
 
@@ -47,6 +47,13 @@ const copy = {
     closed: 'ปิดเรื่องแล้ว',
     closedAt: 'เวลาปิดเรื่อง',
     statusFail: 'อัปเดตสถานะไม่สำเร็จ กรุณาลองใหม่',
+    thaiVoice: 'เสียงแจ้งเตือนภาษาไทย',
+    voiceOn: '🔊 เปิดเสียงไทย',
+    voiceOff: '🔇 ปิดเสียงไทย',
+    testVoice: '▶ ทดสอบเสียง',
+    readAlert: '🔊 อ่านแจ้งเตือน',
+    voiceUnsupported: 'เบราว์เซอร์นี้ไม่รองรับเสียงอ่าน',
+    voiceReady: 'เปิดเสียงแจ้งเตือนภาษาไทยแล้ว',
   },
   en: {
     title: 'Care Tracker Alerts (DEMO)',
@@ -74,6 +81,13 @@ const copy = {
     closed: 'Closed',
     closedAt: 'Closed at',
     statusFail: 'Could not update the alert status. Please try again.',
+    thaiVoice: 'Thai voice alerts',
+    voiceOn: '🔊 Enable Thai voice',
+    voiceOff: '🔇 Disable Thai voice',
+    testVoice: '▶ Test voice',
+    readAlert: '🔊 Read alert',
+    voiceUnsupported: 'This browser does not support speech synthesis',
+    voiceReady: 'Thai voice alerts are enabled',
   },
   zh: {
     title: 'Care Tracker 警报（演示）',
@@ -101,6 +115,13 @@ const copy = {
     closed: '已关闭',
     closedAt: '关闭时间',
     statusFail: '无法更新状态，请重试',
+    thaiVoice: '泰语语音警报',
+    voiceOn: '🔊 开启泰语语音',
+    voiceOff: '🔇 关闭泰语语音',
+    testVoice: '▶ 测试语音',
+    readAlert: '🔊 播报警报',
+    voiceUnsupported: '此浏览器不支持语音朗读',
+    voiceReady: '已开启泰语语音警报',
   },
 } as const;
 
@@ -118,6 +139,54 @@ export default function CareTrackerDemoAlerts() {
   const [realtimeState, setRealtimeState] = useState('…');
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(() =>
+    typeof window !== 'undefined' && window.localStorage.getItem('bo-luang-care-thai-voice') === 'on'
+  );
+  const voiceEnabledRef = useRef(voiceEnabled);
+
+  useEffect(() => {
+    voiceEnabledRef.current = voiceEnabled;
+    window.localStorage.setItem('bo-luang-care-thai-voice', voiceEnabled ? 'on' : 'off');
+  }, [voiceEnabled]);
+
+  function thaiAlertText(alert: DemoAlert) {
+    if (alert.event_type === 'SOS') {
+      return `แจ้งเตือนระบบทดลอง มีสัญญาณ เอส โอ เอส จากอุปกรณ์ ${alert.device_id} แบตเตอรี่ ${alert.battery} เปอร์เซ็นต์ กรุณาตรวจสอบ`;
+    }
+    if (alert.event_type === 'GEOFENCE_ALERT') {
+      return `แจ้งเตือนระบบทดลอง อุปกรณ์ ${alert.device_id} ออกจากพื้นที่ปลอดภัยจำลอง กรุณาตรวจสอบ`;
+    }
+    return `แจ้งเตือนระบบทดลอง ไม่พบสัญญาณจากอุปกรณ์ ${alert.device_id} กรุณาตรวจสอบ`;
+  }
+
+  function speakThai(text: string) {
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      setMessage(t.voiceUnsupported);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'th-TH';
+    utterance.rate = 0.92;
+    utterance.pitch = 1;
+    const thaiVoice = window.speechSynthesis
+      .getVoices()
+      .find((voice) => voice.lang.toLowerCase().startsWith('th'));
+    if (thaiVoice) utterance.voice = thaiVoice;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function toggleThaiVoice() {
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      setMessage(t.voiceUnsupported);
+      return;
+    }
+    const next = !voiceEnabled;
+    setVoiceEnabled(next);
+    if (next) speakThai('เปิดเสียงแจ้งเตือนภาษาไทยแล้ว ระบบนี้เป็นระบบทดลอง');
+    else window.speechSynthesis.cancel();
+  }
 
   const loadAlerts = useCallback(async () => {
     if (!supabase) return;
@@ -149,6 +218,9 @@ export default function CareTrackerDemoAlerts() {
         (payload) => {
           const row = payload.new as DemoAlert;
           if (!row?.id || !['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT'].includes(row.event_type)) return;
+          if (payload.eventType === 'INSERT' && voiceEnabledRef.current) {
+            speakThai(thaiAlertText(row));
+          }
           setAlerts((current) => [row, ...current.filter((item) => item.id !== row.id)]
             .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
             .slice(0, 12));
@@ -249,6 +321,21 @@ export default function CareTrackerDemoAlerts() {
         </div>
         <div className="row">
           <span className="care-alert-realtime">{realtimeState} {t.realtime}</span>
+          <button
+            className={voiceEnabled ? 'btn primary' : 'btn secondary'}
+            type="button"
+            aria-pressed={voiceEnabled}
+            onClick={toggleThaiVoice}
+          >
+            {voiceEnabled ? t.voiceOff : t.voiceOn}
+          </button>
+          <button
+            className="btn secondary"
+            type="button"
+            onClick={() => speakThai('ทดสอบเสียงภาษาไทย ระบบบ่อหลวง ที แคร์ พร้อมใช้งาน')}
+          >
+            {t.testVoice}
+          </button>
           <button className="btn secondary" type="button" onClick={() => void loadAlerts()}>
             {t.refresh}
           </button>
@@ -290,6 +377,13 @@ export default function CareTrackerDemoAlerts() {
               )}
             </div>
             <div className="care-alert-actions">
+              <button
+                className="btn secondary"
+                type="button"
+                onClick={() => speakThai(thaiAlertText(alert))}
+              >
+                {t.readAlert}
+              </button>
               {alert.alert_status === 'NEW' && (
                 <button
                   className="btn primary"
