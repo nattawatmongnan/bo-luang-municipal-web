@@ -412,6 +412,37 @@ export default function App() {
     }
   }
 
+  const THAI_FALLBACK_PHRASES = new Set([
+    t('voiceGuideSpeech'),
+    t('speechUnsupported'),
+    t('summaryLocationReady'),
+    t('summaryLocationMissing'),
+  ]);
+
+  function playThaiFallback(text: string) {
+    if (!THAI_FALLBACK_PHRASES.has(text)) return false;
+
+    const audio = new Audio(
+      'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=th&q=' +
+      encodeURIComponent(text),
+    );
+    audio.preload = 'auto';
+    audio.onplay = () => {
+      setIsSpeaking(true);
+      setVoiceStatus('🔊 กำลังอ่านเป็นภาษาไทย');
+    };
+    audio.onended = () => setIsSpeaking(false);
+    audio.onerror = () => {
+      setIsSpeaking(false);
+      setVoiceStatus('ไม่สามารถเล่นเสียงไทยสำรองได้ กรุณาตรวจสอบอินเทอร์เน็ต');
+    };
+    void audio.play().catch(() => {
+      setIsSpeaking(false);
+      setVoiceStatus('เบราว์เซอร์ปิดกั้นการเล่นเสียง กรุณากดปุ่มอ่านอีกครั้ง');
+    });
+    return true;
+  }
+
   function speakText(text: string) {
     if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
       setVoiceStatus(t('speechUnsupported'));
@@ -435,6 +466,11 @@ export default function App() {
         return;
       }
 
+      if (language === 'th' && !preferredVoice && THAI_FALLBACK_PHRASES.has(text)) {
+        playThaiFallback(text);
+        return;
+      }
+
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = targetLocale;
       utterance.rate = language === 'th' ? 0.88 : 0.92;
@@ -443,7 +479,7 @@ export default function App() {
       if (preferredVoice) {
         utterance.voice = preferredVoice;
       } else if (language === 'th') {
-        setVoiceStatus('กำลังใช้เสียงภาษาไทยของอุปกรณ์ หากไม่ได้ยินเสียง กรุณาเปิดเสียงภาษาไทยในการตั้งค่าเครื่อง');
+        setVoiceStatus('เครื่องนี้ไม่มีเสียงไทยในระบบ แอปจะใช้เสียงไทยสำรองสำหรับคำแนะนำมาตรฐาน');
       }
 
       utterance.onstart = () => {
