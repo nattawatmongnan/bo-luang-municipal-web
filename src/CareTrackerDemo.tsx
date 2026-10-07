@@ -15,6 +15,8 @@ type TimelineItem = {
 
 type MedicationSlot = 'MORNING' | 'NOON' | 'EVENING';
 type MedicationState = 'WAITING' | 'DUE' | 'TAKEN' | 'OVERDUE';
+type PersonGroup = 'DISABILITY' | 'HOMELESS';
+type SupportKind = 'FOOD' | 'SHELTER' | 'TRANSPORT' | 'SOCIAL_WORK' | 'BASIC_SUPPORT';
 
 const MEDICATION_SCHEDULE: { slot: MedicationSlot; time: string }[] = [
   { slot: 'MORNING', time: '08:00' },
@@ -23,6 +25,14 @@ const MEDICATION_SCHEDULE: { slot: MedicationSlot; time: string }[] = [
 ];
 
 const DEMO_HOMELESS_POINT: [number, number] = [18.1540, 98.3515];
+
+const HOMELESS_ROUTE: [number, number][] = [
+  DEMO_HOMELESS_POINT,
+  [18.1552, 98.3528],
+  [18.1562, 98.3508],
+  [18.1530, 98.3497],
+  [18.1518, 98.3516],
+];
 
 const ROUTE: [number, number][] = [
   [18.1450, 98.3480],
@@ -96,6 +106,30 @@ const copy = {
     disabilityPin: 'จุดผู้พิการจำลอง',
     homelessPin: 'จุดคนไร้บ้านจำลอง',
     homelessPerson: 'บุคคลไร้บ้านจำลอง',
+    disabilitySystem: '🧑‍🦽 ระบบผู้พิการ (DEMO)',
+    homelessSystem: '🧍 ระบบคนไร้บ้าน (DEMO)',
+    commonTrackerHelp: 'GPS/SOS/ออฟไลน์/ออกนอกพื้นที่/แบตเตอรี่ เป็นข้อมูลจำลองทั้งหมด',
+    homelessDevice: 'อุปกรณ์คนไร้บ้านจำลอง',
+    homelessMove: '🚶 จำลองการเคลื่อนที่คนไร้บ้าน',
+    homelessSos: '🆘 จำลอง SOS คนไร้บ้าน',
+    homelessGeofence: '🚧 จำลองออกนอกพื้นที่',
+    homelessLowBattery: '🔋 จำลองแบตต่ำ',
+    homelessOffline: '📡 จำลองออฟไลน์',
+    homelessOnline: '📶 กลับมาออนไลน์',
+    checkIn: '✅ เช็กอินพบตัว',
+    welfareVisit: '🤝 บันทึกเยี่ยมพบ',
+    assistanceTitle: 'ระบบขอความช่วยเหลือ',
+    assistanceHelp: 'เลือกประเภทความช่วยเหลือจำลอง แล้วส่งแจ้งเจ้าหน้าที่แบบ Realtime',
+    requestAssistance: '📣 ขอความช่วยเหลือ',
+    food: 'อาหาร/น้ำดื่ม',
+    shelter: 'ที่พักชั่วคราว',
+    transport: 'การเดินทาง',
+    socialWork: 'นักสังคมสงเคราะห์',
+    basicSupport: 'ความช่วยเหลือพื้นฐาน',
+    checkInEvent: 'เช็กอินพบคนไร้บ้านจำลองแล้ว',
+    welfareVisitEvent: 'บันทึกการเยี่ยมพบคนไร้บ้านจำลองแล้ว',
+    assistanceEvent: 'ส่งคำขอความช่วยเหลือจำลองให้เจ้าหน้าที่แล้ว',
+    homelessOfflineAlertEvent: 'ไม่พบสัญญาณคนไร้บ้านจำลองครบ 15 วินาที — แจ้งเจ้าหน้าที่',
   },
   en: {
     title: 'Care Tracker Demo',
@@ -157,6 +191,30 @@ const copy = {
     disabilityPin: 'Simulated disability point',
     homelessPin: 'Simulated homeless-person point',
     homelessPerson: 'Simulated homeless person',
+    disabilitySystem: '🧑‍🦽 Disability support system (DEMO)',
+    homelessSystem: '🧍 Homeless support system (DEMO)',
+    commonTrackerHelp: 'GPS/SOS/offline/geofence/battery are all simulated data.',
+    homelessDevice: 'Homeless demo device',
+    homelessMove: '🚶 Simulate homeless-person movement',
+    homelessSos: '🆘 Simulate homeless-person SOS',
+    homelessGeofence: '🚧 Simulate leaving safe area',
+    homelessLowBattery: '🔋 Simulate low battery',
+    homelessOffline: '📡 Simulate offline',
+    homelessOnline: '📶 Back online',
+    checkIn: '✅ Check in',
+    welfareVisit: '🤝 Record welfare visit',
+    assistanceTitle: 'Assistance request',
+    assistanceHelp: 'Choose a simulated support need and alert staff in Realtime.',
+    requestAssistance: '📣 Request assistance',
+    food: 'Food / drinking water',
+    shelter: 'Temporary shelter',
+    transport: 'Transport',
+    socialWork: 'Social worker',
+    basicSupport: 'Basic support',
+    checkInEvent: 'Simulated homeless-person check-in recorded',
+    welfareVisitEvent: 'Simulated welfare visit recorded',
+    assistanceEvent: 'Simulated assistance request sent to staff',
+    homelessOfflineAlertEvent: 'No homeless demo signal for 15 seconds — staff alerted',
   },
   zh: {
     title: 'Care Tracker Demo',
@@ -218,6 +276,30 @@ const copy = {
     disabilityPin: '模拟残障人士位置',
     homelessPin: '模拟无家可归者位置',
     homelessPerson: '模拟无家可归者',
+    disabilitySystem: '🧑‍🦽 残障人士支持系统（演示）',
+    homelessSystem: '🧍 无家可归者支持系统（演示）',
+    commonTrackerHelp: 'GPS、SOS、离线、越界和电量均为模拟数据。',
+    homelessDevice: '无家可归者模拟设备',
+    homelessMove: '🚶 模拟移动',
+    homelessSos: '🆘 模拟 SOS',
+    homelessGeofence: '🚧 模拟离开安全区域',
+    homelessLowBattery: '🔋 模拟低电量',
+    homelessOffline: '📡 模拟离线',
+    homelessOnline: '📶 恢复在线',
+    checkIn: '✅ 签到',
+    welfareVisit: '🤝 记录探访',
+    assistanceTitle: '求助系统',
+    assistanceHelp: '选择模拟求助类型并实时通知工作人员。',
+    requestAssistance: '📣 请求帮助',
+    food: '食物 / 饮用水',
+    shelter: '临时住所',
+    transport: '交通',
+    socialWork: '社会工作者',
+    basicSupport: '基本援助',
+    checkInEvent: '已记录模拟无家可归者签到',
+    welfareVisitEvent: '已记录模拟探访',
+    assistanceEvent: '模拟求助请求已发送给工作人员',
+    homelessOfflineAlertEvent: '模拟无家可归者设备离线 15 秒 — 已通知工作人员',
   },
 } as const;
 
@@ -229,6 +311,8 @@ export default function CareTrackerDemo() {
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const routeLayerRef = useRef<L.Polyline | null>(null);
+  const homelessMarkerRef = useRef<L.Marker | null>(null);
+  const homelessRouteLayerRef = useRef<L.Polyline | null>(null);
 
   const [routeIndex, setRouteIndex] = useState(0);
   const [battery, setBattery] = useState(86);
@@ -246,8 +330,15 @@ export default function CareTrackerDemo() {
     EVENING: 'WAITING',
   });
   const medicationTimersRef = useRef<Partial<Record<MedicationSlot, number>>>({});
+  const [homelessRouteIndex, setHomelessRouteIndex] = useState(0);
+  const [homelessBattery, setHomelessBattery] = useState(74);
+  const [homelessDeviceState, setHomelessDeviceState] = useState<DeviceState>('ONLINE');
+  const [homelessHistory, setHomelessHistory] = useState<[number, number][]>([HOMELESS_ROUTE[0]]);
+  const [homelessOfflineSeconds, setHomelessOfflineSeconds] = useState<number | null>(null);
+  const [supportKind, setSupportKind] = useState<SupportKind>('BASIC_SUPPORT');
 
   const currentPoint = ROUTE[routeIndex];
+  const homelessPoint = HOMELESS_ROUTE[homelessRouteIndex];
 
   const stateLabel = useMemo(() => {
     if (deviceState === 'SOS') return t.sos;
@@ -270,6 +361,9 @@ export default function CareTrackerDemo() {
     nextBattery: number,
     point: [number, number],
     medication?: { slot: MedicationSlot; time: string },
+    personGroup: PersonGroup = 'DISABILITY',
+    deviceId = 'DEMO-TRACKER-001',
+    selectedSupportKind?: SupportKind,
   ) {
     if (!supabase) {
       setSyncStatus(t.syncFailed);
@@ -289,6 +383,9 @@ export default function CareTrackerDemo() {
             lng: point[1],
             medication_slot: medication?.slot ?? null,
             scheduled_time: medication?.time ?? null,
+            person_group: personGroup,
+            device_id: deviceId,
+            support_kind: selectedSupportKind ?? null,
           },
         },
       });
@@ -417,10 +514,23 @@ export default function CareTrackerDemo() {
       iconAnchor: [23, 23],
     });
 
-    L.marker(DEMO_HOMELESS_POINT, { icon: homelessIcon, zIndexOffset: 200 })
+    homelessMarkerRef.current = L.marker(DEMO_HOMELESS_POINT, { icon: homelessIcon, zIndexOffset: 200 })
       .bindTooltip(t.homelessPerson, { direction: 'top', offset: [0, -20] })
       .bindPopup('<b>DEMO PERSON B</b><br>Simulated homeless-person point — not a real person')
       .addTo(map);
+
+    L.circle(DEMO_HOMELESS_POINT, {
+      radius: 550,
+      color: '#f59e0b',
+      weight: 2,
+      fillOpacity: 0.03,
+    }).addTo(map);
+
+    homelessRouteLayerRef.current = L.polyline([DEMO_HOMELESS_POINT], {
+      color: '#f59e0b',
+      weight: 4,
+      opacity: 0.75,
+    }).addTo(map);
 
     routeLayerRef.current = L.polyline([ROUTE[0]], {
       color: '#2563eb',
@@ -437,6 +547,8 @@ export default function CareTrackerDemo() {
       mapRef.current = null;
       markerRef.current = null;
       routeLayerRef.current = null;
+      homelessMarkerRef.current = null;
+      homelessRouteLayerRef.current = null;
     };
   }, []);
 
@@ -445,6 +557,11 @@ export default function CareTrackerDemo() {
     routeLayerRef.current?.setLatLngs(history);
     mapRef.current?.panTo(currentPoint, { animate: true });
   }, [currentPoint, history]);
+
+  useEffect(() => {
+    homelessMarkerRef.current?.setLatLng(homelessPoint);
+    homelessRouteLayerRef.current?.setLatLngs(homelessHistory);
+  }, [homelessPoint, homelessHistory]);
 
   useEffect(() => {
     if (deviceState !== 'OFFLINE') {
@@ -466,6 +583,27 @@ export default function CareTrackerDemo() {
     }, 1000);
     return () => window.clearInterval(timer);
   }, [deviceState]);
+
+  useEffect(() => {
+    if (homelessDeviceState !== 'OFFLINE') {
+      setHomelessOfflineSeconds(null);
+      return;
+    }
+    setHomelessOfflineSeconds(15);
+    const timer = window.setInterval(() => {
+      setHomelessOfflineSeconds((value) => {
+        if (value === null) return null;
+        if (value <= 1) {
+          window.clearInterval(timer);
+          pushEvent(t.homelessOfflineAlertEvent);
+          void saveDemoEvent('OFFLINE_ALERT', 'OFFLINE', homelessBattery, homelessPoint, undefined, 'HOMELESS', 'DEMO-TRACKER-002');
+          return 0;
+        }
+        return value - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [homelessDeviceState]);
 
   useEffect(() => {
     return () => {
@@ -531,12 +669,87 @@ export default function CareTrackerDemo() {
     }
   }
 
+  function homelessSupportLabel(kind: SupportKind) {
+    if (kind === 'FOOD') return t.food;
+    if (kind === 'SHELTER') return t.shelter;
+    if (kind === 'TRANSPORT') return t.transport;
+    if (kind === 'SOCIAL_WORK') return t.socialWork;
+    return t.basicSupport;
+  }
+
+  function simulateHomelessMove() {
+    if (homelessDeviceState === 'OFFLINE') return;
+    const nextIndex = (homelessRouteIndex + 1) % HOMELESS_ROUTE.length;
+    const nextPoint = HOMELESS_ROUTE[nextIndex];
+    const nextBattery = Math.max(5, homelessBattery - 2);
+    setHomelessRouteIndex(nextIndex);
+    setHomelessHistory((points) => [...points, nextPoint].slice(-12));
+    setHomelessBattery(nextBattery);
+    if (homelessDeviceState === 'SOS') setHomelessDeviceState('ONLINE');
+    pushEvent(`${t.homelessPerson}: ${t.moved}`);
+    void saveDemoEvent('MOVE', 'ONLINE', nextBattery, nextPoint, undefined, 'HOMELESS', 'DEMO-TRACKER-002');
+  }
+
+  function simulateHomelessSos() {
+    if (homelessDeviceState === 'OFFLINE') return;
+    setHomelessDeviceState('SOS');
+    pushEvent(`${t.homelessPerson}: ${t.sosEvent}`);
+    void saveDemoEvent('SOS', 'SOS', homelessBattery, homelessPoint, undefined, 'HOMELESS', 'DEMO-TRACKER-002');
+  }
+
+  function simulateHomelessGeofence() {
+    if (homelessDeviceState === 'OFFLINE') return;
+    const outsidePoint: [number, number] = [DEMO_HOMELESS_POINT[0] + 0.010, DEMO_HOMELESS_POINT[1] + 0.010];
+    homelessMarkerRef.current?.setLatLng(outsidePoint);
+    mapRef.current?.panTo(outsidePoint, { animate: true });
+    setHomelessHistory((points) => [...points, outsidePoint].slice(-12));
+    pushEvent(`${t.homelessPerson}: ${t.geofenceEvent}`);
+    void saveDemoEvent('GEOFENCE_ALERT', homelessDeviceState, homelessBattery, outsidePoint, undefined, 'HOMELESS', 'DEMO-TRACKER-002');
+  }
+
+  function simulateHomelessLowBattery() {
+    setHomelessBattery(12);
+    pushEvent(`${t.homelessPerson}: ${t.batteryEvent}`);
+    void saveDemoEvent('LOW_BATTERY', homelessDeviceState, 12, homelessPoint, undefined, 'HOMELESS', 'DEMO-TRACKER-002');
+  }
+
+  function toggleHomelessOffline() {
+    if (homelessDeviceState === 'OFFLINE') {
+      setHomelessDeviceState('ONLINE');
+      pushEvent(`${t.homelessPerson}: ${t.onlineEvent}`);
+      void saveDemoEvent('ONLINE', 'ONLINE', homelessBattery, homelessPoint, undefined, 'HOMELESS', 'DEMO-TRACKER-002');
+    } else {
+      setHomelessDeviceState('OFFLINE');
+      pushEvent(`${t.homelessPerson}: ${t.offlineEvent}`);
+      void saveDemoEvent('OFFLINE', 'OFFLINE', homelessBattery, homelessPoint, undefined, 'HOMELESS', 'DEMO-TRACKER-002');
+    }
+  }
+
+  function recordHomelessCheckIn() {
+    pushEvent(t.checkInEvent);
+    void saveDemoEvent('CHECK_IN', homelessDeviceState, homelessBattery, homelessPoint, undefined, 'HOMELESS', 'DEMO-TRACKER-002');
+  }
+
+  function recordWelfareVisit() {
+    pushEvent(t.welfareVisitEvent);
+    void saveDemoEvent('WELFARE_VISIT', homelessDeviceState, homelessBattery, homelessPoint, undefined, 'HOMELESS', 'DEMO-TRACKER-002');
+  }
+
+  function requestHomelessAssistance() {
+    pushEvent(`${t.assistanceEvent}: ${homelessSupportLabel(supportKind)}`);
+    void saveDemoEvent('ASSISTANCE_REQUEST', homelessDeviceState, homelessBattery, homelessPoint, undefined, 'HOMELESS', 'DEMO-TRACKER-002', supportKind);
+  }
+
   function resetDemo() {
     const now = new Date();
     setRouteIndex(0);
     setBattery(86);
     setDeviceState('ONLINE');
     setHistory([ROUTE[0]]);
+    setHomelessRouteIndex(0);
+    setHomelessBattery(74);
+    setHomelessDeviceState('ONLINE');
+    setHomelessHistory([HOMELESS_ROUTE[0]]);
     setLastUpdate(now);
     MEDICATION_SCHEDULE.forEach((item) => clearMedicationTimer(item.slot));
     setMedicationStates({ MORNING: 'WAITING', NOON: 'WAITING', EVENING: 'WAITING' });
@@ -578,6 +791,10 @@ export default function CareTrackerDemo() {
       </div>
 
       <div className="card care-demo-controls">
+        <div>
+          <h2>{t.disabilitySystem}</h2>
+          <p className="muted">{t.commonTrackerHelp}</p>
+        </div>
         <div className="row">
           <button className="btn primary" type="button" onClick={simulateMove} disabled={deviceState === 'OFFLINE'}>
             {t.move}
@@ -610,6 +827,51 @@ export default function CareTrackerDemo() {
           </div>
         )}
       </div>
+
+      <section className="card care-homeless-demo">
+        <div className="care-homeless-head">
+          <div>
+            <h2>{t.homelessSystem}</h2>
+            <p className="muted">{t.commonTrackerHelp}</p>
+          </div>
+          <div className="care-homeless-kpis">
+            <span><b>DEMO-TRACKER-002</b></span>
+            <span>{t.battery}: <b>{homelessBattery}%</b></span>
+            <span>{t.status}: <b>{homelessDeviceState === 'SOS' ? t.sos : homelessDeviceState === 'OFFLINE' ? t.offline : t.online}</b></span>
+          </div>
+        </div>
+
+        <div className="row care-homeless-controls">
+          <button className="btn primary" type="button" onClick={simulateHomelessMove} disabled={homelessDeviceState === 'OFFLINE'}>{t.homelessMove}</button>
+          <button className="btn danger" type="button" onClick={simulateHomelessSos} disabled={homelessDeviceState === 'OFFLINE'}>{t.homelessSos}</button>
+          <button className="btn secondary" type="button" onClick={simulateHomelessGeofence} disabled={homelessDeviceState === 'OFFLINE'}>{t.homelessGeofence}</button>
+          <button className="btn secondary" type="button" onClick={simulateHomelessLowBattery}>{t.homelessLowBattery}</button>
+          <button className="btn secondary" type="button" onClick={toggleHomelessOffline}>{homelessDeviceState === 'OFFLINE' ? t.homelessOnline : t.homelessOffline}</button>
+          <button className="btn secondary" type="button" onClick={recordHomelessCheckIn}>{t.checkIn}</button>
+          <button className="btn secondary" type="button" onClick={recordWelfareVisit}>{t.welfareVisit}</button>
+        </div>
+
+        {homelessDeviceState === 'OFFLINE' && homelessOfflineSeconds !== null && (
+          <div className="care-demo-offline-countdown">
+            {t.offlineCountdown}: <b>{homelessOfflineSeconds}</b> {t.seconds}
+          </div>
+        )}
+
+        <div className="care-assistance-box">
+          <div>
+            <b>{t.assistanceTitle}</b>
+            <p className="muted">{t.assistanceHelp}</p>
+          </div>
+          <select value={supportKind} onChange={(e) => setSupportKind(e.target.value as SupportKind)} aria-label={t.assistanceTitle}>
+            <option value="BASIC_SUPPORT">{t.basicSupport}</option>
+            <option value="FOOD">{t.food}</option>
+            <option value="SHELTER">{t.shelter}</option>
+            <option value="TRANSPORT">{t.transport}</option>
+            <option value="SOCIAL_WORK">{t.socialWork}</option>
+          </select>
+          <button className="btn primary" type="button" onClick={requestHomelessAssistance}>{t.requestAssistance}</button>
+        </div>
+      </section>
 
       <section className="card care-medication-demo">
         <div className="care-medication-head">
@@ -683,7 +945,8 @@ export default function CareTrackerDemo() {
           <h2>{t.map}</h2>
           <div ref={mapEl} className="care-demo-map" aria-label={t.map} />
           <div className="muted care-demo-coordinate">
-            {currentPoint[0].toFixed(6)}, {currentPoint[1].toFixed(6)}
+            🧑‍🦽 {currentPoint[0].toFixed(6)}, {currentPoint[1].toFixed(6)} ·
+            🧍 {homelessPoint[0].toFixed(6)}, {homelessPoint[1].toFixed(6)}
           </div>
           <div className="care-demo-map-legend">
             <span>🧑‍🦽 {t.disabilityPin}</span>
