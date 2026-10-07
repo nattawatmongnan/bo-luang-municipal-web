@@ -414,33 +414,58 @@ export default function App() {
 
   const THAI_FALLBACK_PHRASES = new Set([
     t('voiceGuideSpeech'),
-    t('speechUnsupported'),
-    t('summaryLocationReady'),
-    t('summaryLocationMissing'),
   ]);
 
-  function playThaiFallback(text: string) {
+  async function playThaiFallback(text: string) {
     if (!THAI_FALLBACK_PHRASES.has(text)) return false;
 
-    const audio = new Audio(
-      'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=th&q=' +
-      encodeURIComponent(text),
-    );
-    audio.preload = 'auto';
-    audio.onplay = () => {
-      setIsSpeaking(true);
-      setVoiceStatus('🔊 กำลังอ่านเป็นภาษาไทย');
-    };
-    audio.onended = () => setIsSpeaking(false);
-    audio.onerror = () => {
+    const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+    if (!supabaseUrl) {
+      setVoiceStatus('ไม่สามารถเชื่อมต่อเสียงไทยสำรองได้');
+      return false;
+    }
+
+    try {
+      setVoiceStatus('กำลังโหลดเสียงภาษาไทย…');
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/public-api?audio=thai-guide`,
+        {
+          method: 'GET',
+          mode: 'cors',
+          cache: 'force-cache',
+        },
+      );
+
+      if (!response.ok) {
+        setVoiceStatus('โหลดเสียงภาษาไทยไม่สำเร็จ กรุณาลองใหม่');
+        return false;
+      }
+
+      const blob = await response.blob();
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      audio.preload = 'auto';
+      audio.onplay = () => {
+        setIsSpeaking(true);
+        setVoiceStatus('🔊 กำลังอ่านเป็นภาษาไทย');
+      };
+      audio.onended = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+        setVoiceStatus('เล่นเสียงภาษาไทยไม่สำเร็จ กรุณาลองใหม่');
+      };
+
+      await audio.play();
+      return true;
+    } catch {
       setIsSpeaking(false);
-      setVoiceStatus('ไม่สามารถเล่นเสียงไทยสำรองได้ กรุณาตรวจสอบอินเทอร์เน็ต');
-    };
-    void audio.play().catch(() => {
-      setIsSpeaking(false);
-      setVoiceStatus('เบราว์เซอร์ปิดกั้นการเล่นเสียง กรุณากดปุ่มอ่านอีกครั้ง');
-    });
-    return true;
+      setVoiceStatus('เชื่อมต่อเสียงภาษาไทยไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต');
+      return false;
+    }
   }
 
   function speakText(text: string) {
@@ -467,7 +492,7 @@ export default function App() {
       }
 
       if (language === 'th' && !preferredVoice && THAI_FALLBACK_PHRASES.has(text)) {
-        playThaiFallback(text);
+        void playThaiFallback(text);
         return;
       }
 
