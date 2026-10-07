@@ -5,7 +5,9 @@ import { useI18n } from './i18n';
 type DemoAlert = {
   id: string;
   device_id: string;
-  event_type: 'SOS' | 'GEOFENCE_ALERT' | 'OFFLINE_ALERT' | 'MEDICATION_OVERDUE';
+  event_type: 'SOS' | 'GEOFENCE_ALERT' | 'OFFLINE_ALERT' | 'MEDICATION_OVERDUE' | 'ASSISTANCE_REQUEST';
+  person_group: 'DISABILITY' | 'HOMELESS';
+  support_kind: 'FOOD' | 'SHELTER' | 'TRANSPORT' | 'SOCIAL_WORK' | 'BASIC_SUPPORT' | null;
   device_state: string;
   battery: number;
   lat: number | null;
@@ -33,6 +35,16 @@ const copy = {
     medicationOverdue: '💊 เลยเวลาเตือนรับยา (DEMO)',
     medicationSlot: 'รอบยา',
     scheduledTime: 'เวลาที่ตั้งไว้',
+    assistance: '📣 ขอความช่วยเหลือจำลอง',
+    group: 'กลุ่ม',
+    disability: 'ผู้พิการ DEMO',
+    homeless: 'คนไร้บ้าน DEMO',
+    supportKind: 'ประเภทความช่วยเหลือ',
+    food: 'อาหาร/น้ำดื่ม',
+    shelter: 'ที่พักชั่วคราว',
+    transport: 'การเดินทาง',
+    socialWork: 'นักสังคมสงเคราะห์',
+    basicSupport: 'ความช่วยเหลือพื้นฐาน',
     battery: 'แบตเตอรี่',
     location: 'พิกัดจำลอง',
     realtime: 'Realtime',
@@ -70,6 +82,16 @@ const copy = {
     medicationOverdue: '💊 Medication reminder overdue (DEMO)',
     medicationSlot: 'Reminder slot',
     scheduledTime: 'Scheduled time',
+    assistance: '📣 Simulated assistance request',
+    group: 'Group',
+    disability: 'Disability DEMO',
+    homeless: 'Homeless DEMO',
+    supportKind: 'Support type',
+    food: 'Food / water',
+    shelter: 'Temporary shelter',
+    transport: 'Transport',
+    socialWork: 'Social worker',
+    basicSupport: 'Basic support',
     battery: 'Battery',
     location: 'Simulated location',
     realtime: 'Realtime',
@@ -107,6 +129,16 @@ const copy = {
     medicationOverdue: '💊 用药提醒已超时（演示）',
     medicationSlot: '提醒时段',
     scheduledTime: '设定时间',
+    assistance: '📣 模拟求助',
+    group: '群组',
+    disability: '残障人士 DEMO',
+    homeless: '无家可归者 DEMO',
+    supportKind: '援助类型',
+    food: '食物 / 饮用水',
+    shelter: '临时住所',
+    transport: '交通',
+    socialWork: '社会工作者',
+    basicSupport: '基本援助',
     battery: '电量',
     location: '模拟位置',
     realtime: '实时',
@@ -138,11 +170,12 @@ const copy = {
 
 function label(
   eventType: DemoAlert['event_type'],
-  t: { sos: string; geofence: string; offline: string; medicationOverdue: string },
+  t: { sos: string; geofence: string; offline: string; medicationOverdue: string; assistance: string },
 ) {
   if (eventType === 'SOS') return t.sos;
   if (eventType === 'GEOFENCE_ALERT') return t.geofence;
   if (eventType === 'MEDICATION_OVERDUE') return t.medicationOverdue;
+  if (eventType === 'ASSISTANCE_REQUEST') return t.assistance;
   return t.offline;
 }
 
@@ -154,6 +187,19 @@ function medicationSlotLabel(
   if (language === 'th') return slot === 'MORNING' ? 'รอบเช้า' : slot === 'NOON' ? 'รอบกลางวัน' : 'รอบเย็น';
   if (language === 'zh') return slot === 'MORNING' ? '早间' : slot === 'NOON' ? '中午' : '晚间';
   return slot === 'MORNING' ? 'Morning' : slot === 'NOON' ? 'Noon' : 'Evening';
+}
+
+function supportKindLabel(
+  kind: DemoAlert['support_kind'],
+  t: {
+    food: string; shelter: string; transport: string; socialWork: string; basicSupport: string;
+  },
+) {
+  if (kind === 'FOOD') return t.food;
+  if (kind === 'SHELTER') return t.shelter;
+  if (kind === 'TRANSPORT') return t.transport;
+  if (kind === 'SOCIAL_WORK') return t.socialWork;
+  return t.basicSupport;
 }
 
 export default function CareTrackerDemoAlerts() {
@@ -183,6 +229,9 @@ export default function CareTrackerDemoAlerts() {
     }
     if (alert.event_type === 'MEDICATION_OVERDUE') {
       return `แจ้งเตือนระบบทดลอง ยังไม่มีการยืนยันการรับยาตามรอบที่ตั้งไว้ จากอุปกรณ์ ${alert.device_id} กรุณาตรวจสอบกับผู้ดูแล`;
+    }
+    if (alert.event_type === 'ASSISTANCE_REQUEST') {
+      return `แจ้งเตือนระบบทดลอง คนไร้บ้านจำลองส่งคำขอความช่วยเหลือจากอุปกรณ์ ${alert.device_id} กรุณาตรวจสอบ`;
     }
     return `แจ้งเตือนระบบทดลอง ไม่พบสัญญาณจากอุปกรณ์ ${alert.device_id} กรุณาตรวจสอบ`;
   }
@@ -220,8 +269,8 @@ export default function CareTrackerDemoAlerts() {
     if (!supabase) return;
     const { data, error } = await supabase
       .from('care_tracker_demo_events')
-      .select('id,device_id,event_type,device_state,battery,lat,lng,medication_slot,scheduled_time,created_at,alert_status,accepted_at,accepted_by,started_at,started_by,closed_at,closed_by')
-      .in('event_type', ['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT', 'MEDICATION_OVERDUE'])
+      .select('id,device_id,person_group,event_type,device_state,battery,lat,lng,medication_slot,scheduled_time,support_kind,created_at,alert_status,accepted_at,accepted_by,started_at,started_by,closed_at,closed_by')
+      .in('event_type', ['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT', 'MEDICATION_OVERDUE', 'ASSISTANCE_REQUEST'])
       .order('created_at', { ascending: false })
       .limit(12);
 
@@ -245,7 +294,7 @@ export default function CareTrackerDemoAlerts() {
         { event: '*', schema: 'public', table: 'care_tracker_demo_events' },
         (payload) => {
           const row = payload.new as DemoAlert;
-          if (!row?.id || !['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT', 'MEDICATION_OVERDUE'].includes(row.event_type)) return;
+          if (!row?.id || !['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT', 'MEDICATION_OVERDUE', 'ASSISTANCE_REQUEST'].includes(row.event_type)) return;
           if (payload.eventType === 'INSERT' && voiceEnabledRef.current) {
             speakThai(thaiAlertText(row));
           }
@@ -389,7 +438,11 @@ export default function CareTrackerDemoAlerts() {
               </div>
             </div>
             <div className="care-alert-meta">
+              <span>{t.group}: {alert.person_group === 'HOMELESS' ? t.homeless : t.disability}</span>
               <span>{t.battery}: {alert.battery}%</span>
+              {alert.event_type === 'ASSISTANCE_REQUEST' && (
+                <span>{t.supportKind}: {supportKindLabel(alert.support_kind, t)}</span>
+              )}
               {alert.event_type === 'MEDICATION_OVERDUE' && alert.medication_slot && (
                 <span>{t.medicationSlot}: {medicationSlotLabel(alert.medication_slot, language)}</span>
               )}
