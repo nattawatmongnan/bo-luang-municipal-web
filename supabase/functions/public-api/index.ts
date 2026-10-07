@@ -61,7 +61,48 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method === 'GET') {
-    return json({ ok: true, service: 'bo-luang-public-api', version: 3 }, 200, origin);
+    const url = new URL(req.url);
+
+    if (url.searchParams.get('audio') === 'thai-guide') {
+      if (!origin || !allowedOrigins.has(origin)) {
+        return json({ ok: false, code: 'ORIGIN_DENIED' }, 403, origin);
+      }
+
+      const thaiGuide =
+        'นี่คือแบบฟอร์มแจ้งเหตุของเทศบาล กรุณาเลือกประเภทเหตุ เลือกหมู่บ้าน ' +
+        'พูดหรือกรอกหัวข้อและรายละเอียด ปักหมุดตำแหน่ง และตรวจสอบข้อมูลก่อนกดส่ง';
+
+      try {
+        const ttsUrl =
+          'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=th&q=' +
+          encodeURIComponent(thaiGuide);
+
+        const upstream = await fetch(ttsUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0',
+            'Accept': 'audio/mpeg,audio/*;q=0.9,*/*;q=0.1',
+          },
+        });
+
+        if (!upstream.ok) {
+          return json({ ok: false, code: 'THAI_AUDIO_UPSTREAM_FAILED' }, 502, origin);
+        }
+
+        const audio = await upstream.arrayBuffer();
+        return new Response(audio, {
+          status: 200,
+          headers: {
+            ...cors(origin),
+            'Content-Type': 'audio/mpeg',
+            'Cache-Control': 'public, max-age=86400',
+          },
+        });
+      } catch {
+        return json({ ok: false, code: 'THAI_AUDIO_FAILED' }, 502, origin);
+      }
+    }
+
+    return json({ ok: true, service: 'bo-luang-public-api', version: 5 }, 200, origin);
   }
 
   if (req.method !== 'POST') {
