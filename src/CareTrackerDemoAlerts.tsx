@@ -5,11 +5,13 @@ import { useI18n } from './i18n';
 type DemoAlert = {
   id: string;
   device_id: string;
-  event_type: 'SOS' | 'GEOFENCE_ALERT' | 'OFFLINE_ALERT';
+  event_type: 'SOS' | 'GEOFENCE_ALERT' | 'OFFLINE_ALERT' | 'MEDICATION_OVERDUE';
   device_state: string;
   battery: number;
   lat: number | null;
   lng: number | null;
+  medication_slot: 'MORNING' | 'NOON' | 'EVENING' | null;
+  scheduled_time: string | null;
   created_at: string;
   alert_status: 'NEW' | 'ACCEPTED' | 'IN_PROGRESS' | 'CLOSED';
   accepted_at: string | null;
@@ -28,6 +30,9 @@ const copy = {
     sos: '🆘 SOS จำลอง',
     geofence: '🚧 ออกนอกพื้นที่ปลอดภัยจำลอง',
     offline: '📡 ขาดสัญญาณจำลอง',
+    medicationOverdue: '💊 เลยเวลาเตือนรับยา (DEMO)',
+    medicationSlot: 'รอบยา',
+    scheduledTime: 'เวลาที่ตั้งไว้',
     battery: 'แบตเตอรี่',
     location: 'พิกัดจำลอง',
     realtime: 'Realtime',
@@ -62,6 +67,9 @@ const copy = {
     sos: '🆘 Simulated SOS',
     geofence: '🚧 Simulated geofence alert',
     offline: '📡 Simulated signal-loss alert',
+    medicationOverdue: '💊 Medication reminder overdue (DEMO)',
+    medicationSlot: 'Reminder slot',
+    scheduledTime: 'Scheduled time',
     battery: 'Battery',
     location: 'Simulated location',
     realtime: 'Realtime',
@@ -96,6 +104,9 @@ const copy = {
     sos: '🆘 模拟 SOS',
     geofence: '🚧 模拟越界警报',
     offline: '📡 模拟失联警报',
+    medicationOverdue: '💊 用药提醒已超时（演示）',
+    medicationSlot: '提醒时段',
+    scheduledTime: '设定时间',
     battery: '电量',
     location: '模拟位置',
     realtime: '实时',
@@ -125,10 +136,24 @@ const copy = {
   },
 } as const;
 
-function label(eventType: DemoAlert['event_type'], t: { sos: string; geofence: string; offline: string }) {
+function label(
+  eventType: DemoAlert['event_type'],
+  t: { sos: string; geofence: string; offline: string; medicationOverdue: string },
+) {
   if (eventType === 'SOS') return t.sos;
   if (eventType === 'GEOFENCE_ALERT') return t.geofence;
+  if (eventType === 'MEDICATION_OVERDUE') return t.medicationOverdue;
   return t.offline;
+}
+
+function medicationSlotLabel(
+  slot: DemoAlert['medication_slot'],
+  language: 'th' | 'en' | 'zh',
+) {
+  if (!slot) return '';
+  if (language === 'th') return slot === 'MORNING' ? 'รอบเช้า' : slot === 'NOON' ? 'รอบกลางวัน' : 'รอบเย็น';
+  if (language === 'zh') return slot === 'MORNING' ? '早间' : slot === 'NOON' ? '中午' : '晚间';
+  return slot === 'MORNING' ? 'Morning' : slot === 'NOON' ? 'Noon' : 'Evening';
 }
 
 export default function CareTrackerDemoAlerts() {
@@ -155,6 +180,9 @@ export default function CareTrackerDemoAlerts() {
     }
     if (alert.event_type === 'GEOFENCE_ALERT') {
       return `แจ้งเตือนระบบทดลอง อุปกรณ์ ${alert.device_id} ออกจากพื้นที่ปลอดภัยจำลอง กรุณาตรวจสอบ`;
+    }
+    if (alert.event_type === 'MEDICATION_OVERDUE') {
+      return `แจ้งเตือนระบบทดลอง ยังไม่มีการยืนยันการรับยาตามรอบที่ตั้งไว้ จากอุปกรณ์ ${alert.device_id} กรุณาตรวจสอบกับผู้ดูแล`;
     }
     return `แจ้งเตือนระบบทดลอง ไม่พบสัญญาณจากอุปกรณ์ ${alert.device_id} กรุณาตรวจสอบ`;
   }
@@ -192,8 +220,8 @@ export default function CareTrackerDemoAlerts() {
     if (!supabase) return;
     const { data, error } = await supabase
       .from('care_tracker_demo_events')
-      .select('id,device_id,event_type,device_state,battery,lat,lng,created_at,alert_status,accepted_at,accepted_by,started_at,started_by,closed_at,closed_by')
-      .in('event_type', ['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT'])
+      .select('id,device_id,event_type,device_state,battery,lat,lng,medication_slot,scheduled_time,created_at,alert_status,accepted_at,accepted_by,started_at,started_by,closed_at,closed_by')
+      .in('event_type', ['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT', 'MEDICATION_OVERDUE'])
       .order('created_at', { ascending: false })
       .limit(12);
 
@@ -217,7 +245,7 @@ export default function CareTrackerDemoAlerts() {
         { event: '*', schema: 'public', table: 'care_tracker_demo_events' },
         (payload) => {
           const row = payload.new as DemoAlert;
-          if (!row?.id || !['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT'].includes(row.event_type)) return;
+          if (!row?.id || !['SOS', 'GEOFENCE_ALERT', 'OFFLINE_ALERT', 'MEDICATION_OVERDUE'].includes(row.event_type)) return;
           if (payload.eventType === 'INSERT' && voiceEnabledRef.current) {
             speakThai(thaiAlertText(row));
           }
@@ -362,6 +390,12 @@ export default function CareTrackerDemoAlerts() {
             </div>
             <div className="care-alert-meta">
               <span>{t.battery}: {alert.battery}%</span>
+              {alert.event_type === 'MEDICATION_OVERDUE' && alert.medication_slot && (
+                <span>{t.medicationSlot}: {medicationSlotLabel(alert.medication_slot, language)}</span>
+              )}
+              {alert.event_type === 'MEDICATION_OVERDUE' && alert.scheduled_time && (
+                <span>{t.scheduledTime}: {alert.scheduled_time.slice(0, 5)}</span>
+              )}
               {alert.lat !== null && alert.lng !== null && (
                 <span>{t.location}: {alert.lat.toFixed(5)}, {alert.lng.toFixed(5)}</span>
               )}
