@@ -73,6 +73,9 @@ export default function GISDashboard({ userId, canWrite }: Props) {
   const [villageFilter, setVillageFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [selectedIncident, setSelectedIncident] = useState<IncidentPoint | null>(null);
+  const [showIncidentLayer, setShowIncidentLayer] = useState(true);
+  const [showAreaLayer, setShowAreaLayer] = useState(true);
+  const [newIncidentAlert, setNewIncidentAlert] = useState<IncidentPoint | null>(null);
 
   const reload = useCallback(async () => {
     if (!supabase) return;
@@ -117,13 +120,56 @@ export default function GISDashboard({ userId, canWrite }: Props) {
     });
   }, [incidents, statusFilter, urgencyFilter, villageFilter, search]);
 
+  const filteredStats = useMemo(() => ({
+    all: filteredIncidents.length,
+    high: filteredIncidents.filter((i) => i.urgency === 'HIGH').length,
+    inProgress: filteredIncidents.filter((i) => i.status === 'IN_PROGRESS').length,
+    newOrChecking: filteredIncidents.filter((i) => ['RECEIVED', 'VERIFYING'].includes(i.status)).length,
+  }), [filteredIncidents]);
+
+  const latestIncident = useMemo(
+    () => filteredIncidents
+      .filter((i) => i.lat !== null && i.lng !== null)
+      .slice()
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null,
+    [filteredIncidents],
+  );
+
+  function focusIncident(item: IncidentPoint) {
+    setSelectedIncident(item);
+    if (item.lat !== null && item.lng !== null) {
+      mapRef.current?.setView([item.lat, item.lng], 17, { animate: true });
+    }
+  }
+
+  function fitFilteredPoints() {
+    const points = filteredIncidents
+      .filter((i) => i.lat !== null && i.lng !== null)
+      .map((i) => [i.lat as number, i.lng as number] as [number, number]);
+
+    if (points.length === 0) return;
+    if (points.length === 1) {
+      mapRef.current?.setView(points[0], 17, { animate: true });
+      return;
+    }
+    mapRef.current?.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 16 });
+  }
+
   useEffect(() => {
     if (!supabase) return;
     void reload();
 
     const channel = supabase
       .channel('bo-luang-gis-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'municipal_incidents' }, () => void reload())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'municipal_incidents' }, (payload) => {
+        void reload();
+        if (payload.eventType === 'INSERT') {
+          const row = payload.new as IncidentPoint;
+          if (row?.id && row.lat !== null && row.lng !== null) {
+            setNewIncidentAlert(row);
+          }
+        }
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emergency_areas' }, () => void reload())
       .subscribe((status) => {
         setLiveStatus(status === 'SUBSCRIBED' ? t('realtimeConnected') : `Realtime: ${status}`);
@@ -183,7 +229,14 @@ export default function GISDashboard({ userId, canWrite }: Props) {
 
   useEffect(() => {
     const layer = incidentLayerRef.current;
-    if (!layer) return;
+    const map = mapRef.current;
+    if (!layer || !map) return;
+
+    if (!showIncidentLayer) {
+      layer.clearLayers();
+      return;
+    }
+
     layer.clearLayers();
 
     filteredIncidents.forEach((i) => {
@@ -191,7 +244,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
 
       const color = severityColor[i.urgency] || severityColor.MEDIUM;
       const icon = L.divIcon({
-        className: 'incident-person-marker',
+        className: i.urgency === 'HIGH' ? 'incident-person-marker high-priority' : 'incident-person-marker',
         html: `
           <div class="incident-person-dot" style="--incident-color:${color}" aria-label="${escapeHtml(localizeUrgency(i.urgency, language))}">
             <span class="incident-person-symbol">👤</span>
@@ -204,7 +257,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
       });
 
       const marker = L.marker([i.lat, i.lng], { icon });
-      marker.on('click', () => setSelectedIncident(i));
+      marker.on('click', () => focusIncident(i));
       marker.bindPopup(
         `<b>${escapeHtml(i.title)}</b><br>
         ${escapeHtml(i.tracking_no)}<br>
@@ -215,11 +268,18 @@ export default function GISDashboard({ userId, canWrite }: Props) {
       );
       marker.addTo(layer);
     });
-  }, [filteredIncidents, language]);
+  }, [filteredIncidents, language, showIncidentLayer]);
 
   useEffect(() => {
     const layer = areaLayerRef.current;
-    if (!layer) return;
+    const map = mapRef.current;
+    if (!layer || !map) return;
+
+    if (!showAreaLayer) {
+      layer.clearLayers();
+      return;
+    }
+
     layer.clearLayers();
 
     areas.filter((a) => a.active).forEach((a) => {
@@ -239,7 +299,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
       );
       geoLayer.addTo(layer);
     });
-  }, [areas, language]);
+  }, [areas, language, showAreaLayer]);
 
   function startDrawing() {
     if (!canWrite) return;
@@ -315,8 +375,68 @@ export default function GISDashboard({ userId, canWrite }: Props) {
           <b>{t('gisTitle')}</b>
           <div className="muted">{liveStatus} · {t('incidentPoints')} {incidents.length} · {t('emergencyAreas')} {areas.filter((a) => a.active).length}</div>
         </div>
-        <button className="btn secondary" type="button" onClick={() => void reload()}>{t('refresh')}</button>
+        <div className="row">
+          <button className="btn secondary" type="button" onClick={fitFilteredPoints}>{t('gisFitPoints')}</button>
+          <button
+            className="btn secondary"
+            type="button"
+            disabled={!latestIncident}
+            onClick={() => latestIncident && focusIncident(latestIncident)}
+          >
+            {t('gisLatest')}
+          </button>
+          <button className="btn secondary" type="button" onClick={() => void reload()}>{t('refresh')}</button>
+        </div>
       </div>
+
+      {newIncidentAlert && (
+        <div className="gis-live-alert" role="alert">
+          <div>
+            <b>🔴 {t('gisNewIncident')}</b>
+            <span>{newIncidentAlert.title} · {localizeVillage(newIncidentAlert.village, language)}</span>
+          </div>
+          <div className="row">
+            <button className="btn primary" type="button" onClick={() => {
+              focusIncident(newIncidentAlert);
+              setNewIncidentAlert(null);
+            }}>
+              {t('gisViewIncident')}
+            </button>
+            <button className="btn secondary" type="button" onClick={() => setNewIncidentAlert(null)}>
+              {t('gisDismiss')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <section className="gis-live-summary" aria-label={t('gisLiveSummary')}>
+        <div className="gis-live-kpi"><span>{t('gisVisible')}</span><b>{filteredStats.all}</b></div>
+        <div className="gis-live-kpi high"><span>{t('high')}</span><b>{filteredStats.high}</b></div>
+        <div className="gis-live-kpi active"><span>{localizeStatus('IN_PROGRESS', language)}</span><b>{filteredStats.inProgress}</b></div>
+        <div className="gis-live-kpi checking"><span>{t('gisAwaitingAction')}</span><b>{filteredStats.newOrChecking}</b></div>
+      </section>
+
+      <section className="card gis-layer-controls">
+        <b>{t('gisLayers')}</b>
+        <div className="row">
+          <button
+            className={showIncidentLayer ? 'btn primary' : 'btn secondary'}
+            type="button"
+            aria-pressed={showIncidentLayer}
+            onClick={() => setShowIncidentLayer((value) => !value)}
+          >
+            👤 {t('incidentPoints')}
+          </button>
+          <button
+            className={showAreaLayer ? 'btn primary' : 'btn secondary'}
+            type="button"
+            aria-pressed={showAreaLayer}
+            onClick={() => setShowAreaLayer((value) => !value)}
+          >
+            ⚠️ {t('emergencyAreas')}
+          </button>
+        </div>
+      </section>
 
       {canWrite && (
         <div className="card gis-area-editor">
@@ -419,12 +539,7 @@ export default function GISDashboard({ userId, canWrite }: Props) {
                 className={'gis-incident-row ' + (selectedIncident?.id === item.id ? 'active' : '')}
                 type="button"
                 key={item.id}
-                onClick={() => {
-                  setSelectedIncident(item);
-                  if (item.lat !== null && item.lng !== null) {
-                    mapRef.current?.setView([item.lat, item.lng], 17);
-                  }
-                }}
+                onClick={() => focusIncident(item)}
               >
                 <span className="gis-incident-title">{item.title}</span>
                 <span className="muted">{item.tracking_no} · {localizeVillage(item.village, language)}</span>
@@ -452,6 +567,9 @@ export default function GISDashboard({ userId, canWrite }: Props) {
               {selectedIncident.lat !== null && selectedIncident.lng !== null && (
                 <p className="muted">{t('coordinate')}: {selectedIncident.lat.toFixed(6)}, {selectedIncident.lng.toFixed(6)}</p>
               )}
+              <button className="btn secondary" type="button" onClick={() => focusIncident(selectedIncident)}>
+                📍 {t('gisCenterOnMap')}
+              </button>
             </div>
           )}
         </section>
