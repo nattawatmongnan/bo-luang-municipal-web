@@ -357,7 +357,7 @@ export default function CareTrackerDemo() {
   }
 
   async function saveDemoEvent(
-    eventType: 'MOVE' | 'SOS' | 'LOW_BATTERY' | 'OFFLINE' | 'ONLINE' | 'RESET' | 'GEOFENCE_ALERT' | 'OFFLINE_ALERT' | 'MEDICATION_DUE' | 'MEDICATION_TAKEN' | 'MEDICATION_OVERDUE',
+    eventType: 'MOVE' | 'SOS' | 'LOW_BATTERY' | 'OFFLINE' | 'ONLINE' | 'RESET' | 'GEOFENCE_ALERT' | 'OFFLINE_ALERT' | 'MEDICATION_DUE' | 'MEDICATION_TAKEN' | 'MEDICATION_OVERDUE' | 'CHECK_IN' | 'WELFARE_VISIT' | 'ASSISTANCE_REQUEST',
     nextState: DeviceState,
     nextBattery: number,
     point: [number, number],
