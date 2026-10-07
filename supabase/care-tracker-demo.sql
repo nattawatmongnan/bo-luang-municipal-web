@@ -6,6 +6,7 @@
 create table if not exists public.care_tracker_demo_events (
   id uuid primary key default gen_random_uuid(),
   device_id text not null default 'DEMO-TRACKER-001',
+  person_group text not null default 'DISABILITY' check (person_group in ('DISABILITY','HOMELESS')),
   event_type text not null,
   device_state text not null default 'ONLINE',
   battery integer not null check (battery between 0 and 100),
@@ -14,6 +15,7 @@ create table if not exists public.care_tracker_demo_events (
   note text,
   medication_slot text check (medication_slot is null or medication_slot in ('MORNING','NOON','EVENING')),
   scheduled_time time,
+  support_kind text check (support_kind is null or support_kind in ('FOOD','SHELTER','TRANSPORT','SOCIAL_WORK','BASIC_SUPPORT')),
   alert_status text not null default 'NEW' check (alert_status in ('NEW','ACCEPTED','IN_PROGRESS','CLOSED')),
   accepted_at timestamptz,
   accepted_by uuid references auth.users(id) on delete set null,
@@ -25,7 +27,7 @@ create table if not exists public.care_tracker_demo_events (
   constraint care_tracker_demo_device_chk
     check (device_id ~ '^DEMO-TRACKER-[0-9]{3}$'),
   constraint care_tracker_demo_event_chk
-    check (event_type in ('MOVE','SOS','LOW_BATTERY','OFFLINE','ONLINE','RESET','GEOFENCE_ALERT','OFFLINE_ALERT','MEDICATION_DUE','MEDICATION_TAKEN','MEDICATION_OVERDUE')),
+    check (event_type in ('MOVE','SOS','LOW_BATTERY','OFFLINE','ONLINE','RESET','GEOFENCE_ALERT','OFFLINE_ALERT','MEDICATION_DUE','MEDICATION_TAKEN','MEDICATION_OVERDUE','CHECK_IN','WELFARE_VISIT','ASSISTANCE_REQUEST')),
   constraint care_tracker_demo_state_chk
     check (device_state in ('ONLINE','OFFLINE','SOS')),
   constraint care_tracker_demo_lat_chk
@@ -48,6 +50,9 @@ using (private.current_role() in ('staff','department','executive','admin'));
 
 create index if not exists care_tracker_demo_events_created_at_idx
   on public.care_tracker_demo_events(created_at desc);
+
+create index if not exists care_tracker_demo_events_person_group_created_idx
+  on public.care_tracker_demo_events(person_group, created_at desc);
 
 create or replace function public.consume_care_tracker_demo_rate_limit()
 returns boolean
@@ -108,7 +113,7 @@ begin
     accepted_at = coalesce(e.accepted_at, now()),
     accepted_by = coalesce(e.accepted_by, auth.uid())
   where e.id = p_event_id
-    and e.event_type in ('SOS','GEOFENCE_ALERT','OFFLINE_ALERT','MEDICATION_OVERDUE')
+    and e.event_type in ('SOS','GEOFENCE_ALERT','OFFLINE_ALERT','MEDICATION_OVERDUE','ASSISTANCE_REQUEST')
   returning e.id, e.alert_status, e.accepted_at, e.accepted_by;
 end;
 $$;
@@ -172,7 +177,7 @@ begin
   into v_current_status
   from public.care_tracker_demo_events e
   where e.id = p_event_id
-    and e.event_type in ('SOS','GEOFENCE_ALERT','OFFLINE_ALERT')
+    and e.event_type in ('SOS','GEOFENCE_ALERT','OFFLINE_ALERT','MEDICATION_OVERDUE','ASSISTANCE_REQUEST')
   for update;
 
   if v_current_status is null then
