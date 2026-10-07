@@ -13,6 +13,15 @@ type TimelineItem = {
   text: string;
 };
 
+type MedicationSlot = 'MORNING' | 'NOON' | 'EVENING';
+type MedicationState = 'WAITING' | 'DUE' | 'TAKEN' | 'OVERDUE';
+
+const MEDICATION_SCHEDULE: { slot: MedicationSlot; time: string }[] = [
+  { slot: 'MORNING', time: '08:00' },
+  { slot: 'NOON', time: '12:00' },
+  { slot: 'EVENING', time: '18:00' },
+];
+
 const ROUTE: [number, number][] = [
   [18.1450, 98.3480],
   [18.1480, 98.3510],
@@ -64,6 +73,24 @@ const copy = {
     syncSaved: 'บันทึกเหตุการณ์เข้า Supabase แล้ว',
     syncFailed: 'บันทึกเข้า Supabase ไม่สำเร็จ',
     syncRate: 'ทดลองถี่เกินไป กรุณารอสักครู่',
+    medicationTitle: '💊 ระบบเตือนรับยา (DEMO)',
+    medicationHelp: 'เป็นการจำลองเวลาเท่านั้น ไม่ใช่คำสั่งการใช้ยาจริง ตารางยาจริงต้องมาจากแพทย์ ผู้ดูแล หรือข้อมูลที่ได้รับการยืนยัน',
+    morning: 'รอบเช้า',
+    noon: 'รอบกลางวัน',
+    evening: 'รอบเย็น',
+    waiting: 'รอเวลา',
+    due: 'ถึงเวลาแล้ว',
+    taken: 'ยืนยันรับยาแล้ว',
+    overdue: 'เลยเวลาแล้ว',
+    simulateDue: '⏰ จำลองถึงเวลา',
+    confirmTaken: '✅ ยืนยันรับยาแล้ว',
+    simulateOverdue: '⚠️ จำลองเลยเวลา',
+    autoOverdue: 'ถ้ายังไม่ยืนยัน ภายใน 20 วินาที DEMO จะเปลี่ยนเป็นเลยเวลาอัตโนมัติ',
+    medicationDueEvent: 'ถึงเวลารับยารอบจำลอง',
+    medicationTakenEvent: 'ยืนยันรับยารอบจำลองแล้ว',
+    medicationOverdueEvent: 'เลยเวลารับยารอบจำลอง — แจ้งเจ้าหน้าที่',
+    todayProgress: 'สถานะรอบยาวันนี้',
+    nextMedication: 'รอบถัดไป',
   },
   en: {
     title: 'Care Tracker Demo',
@@ -104,6 +131,24 @@ const copy = {
     syncSaved: 'Demo event saved to Supabase',
     syncFailed: 'Could not save the demo event to Supabase',
     syncRate: 'Too many demo events. Please wait a moment.',
+    medicationTitle: '💊 Medication Reminder (DEMO)',
+    medicationHelp: 'Simulation only. This is not medical dosing advice. Real schedules must come from a clinician, caregiver, or verified instructions.',
+    morning: 'Morning',
+    noon: 'Noon',
+    evening: 'Evening',
+    waiting: 'Waiting',
+    due: 'Due now',
+    taken: 'Confirmed',
+    overdue: 'Overdue',
+    simulateDue: '⏰ Simulate due time',
+    confirmTaken: '✅ Confirm taken',
+    simulateOverdue: '⚠️ Simulate overdue',
+    autoOverdue: 'If not confirmed within 20 seconds, the DEMO automatically marks it overdue.',
+    medicationDueEvent: 'Simulated medication reminder is due',
+    medicationTakenEvent: 'Simulated medication was confirmed',
+    medicationOverdueEvent: 'Simulated medication reminder is overdue — staff alerted',
+    todayProgress: 'Today’s reminder progress',
+    nextMedication: 'Next reminder',
   },
   zh: {
     title: 'Care Tracker Demo',
@@ -144,6 +189,24 @@ const copy = {
     syncSaved: '模拟事件已保存到 Supabase',
     syncFailed: '无法保存到 Supabase',
     syncRate: '模拟操作过于频繁，请稍后再试',
+    medicationTitle: '💊 用药提醒（演示）',
+    medicationHelp: '仅为时间提醒演示，不是实际用药建议。真实用药时间应来自医生、照护者或已确认的说明。',
+    morning: '早间',
+    noon: '中午',
+    evening: '晚间',
+    waiting: '等待时间',
+    due: '时间已到',
+    taken: '已确认',
+    overdue: '已超时',
+    simulateDue: '⏰ 模拟到点',
+    confirmTaken: '✅ 确认已服用',
+    simulateOverdue: '⚠️ 模拟超时',
+    autoOverdue: '若 20 秒内未确认，演示系统会自动标记为超时。',
+    medicationDueEvent: '模拟用药提醒时间已到',
+    medicationTakenEvent: '已确认模拟用药提醒',
+    medicationOverdueEvent: '模拟用药提醒已超时 — 已通知工作人员',
+    todayProgress: '今日提醒进度',
+    nextMedication: '下一次提醒',
   },
 } as const;
 
@@ -166,6 +229,12 @@ export default function CareTrackerDemo() {
   ]);
   const [syncStatus, setSyncStatus] = useState<string>(copy[language].syncIdle);
   const [offlineSeconds, setOfflineSeconds] = useState<number | null>(null);
+  const [medicationStates, setMedicationStates] = useState<Record<MedicationSlot, MedicationState>>({
+    MORNING: 'WAITING',
+    NOON: 'WAITING',
+    EVENING: 'WAITING',
+  });
+  const medicationTimersRef = useRef<Partial<Record<MedicationSlot, number>>>({});
 
   const currentPoint = ROUTE[routeIndex];
 
@@ -185,10 +254,11 @@ export default function CareTrackerDemo() {
   }
 
   async function saveDemoEvent(
-    eventType: 'MOVE' | 'SOS' | 'LOW_BATTERY' | 'OFFLINE' | 'ONLINE' | 'RESET' | 'GEOFENCE_ALERT' | 'OFFLINE_ALERT',
+    eventType: 'MOVE' | 'SOS' | 'LOW_BATTERY' | 'OFFLINE' | 'ONLINE' | 'RESET' | 'GEOFENCE_ALERT' | 'OFFLINE_ALERT' | 'MEDICATION_DUE' | 'MEDICATION_TAKEN' | 'MEDICATION_OVERDUE',
     nextState: DeviceState,
     nextBattery: number,
     point: [number, number],
+    medication?: { slot: MedicationSlot; time: string },
   ) {
     if (!supabase) {
       setSyncStatus(t.syncFailed);
@@ -206,6 +276,8 @@ export default function CareTrackerDemo() {
             battery: nextBattery,
             lat: point[0],
             lng: point[1],
+            medication_slot: medication?.slot ?? null,
+            scheduled_time: medication?.time ?? null,
           },
         },
       });
@@ -220,6 +292,64 @@ export default function CareTrackerDemo() {
       setSyncStatus(t.syncFailed);
     }
   }
+
+  function medicationSlotLabel(slot: MedicationSlot) {
+    if (slot === 'MORNING') return t.morning;
+    if (slot === 'NOON') return t.noon;
+    return t.evening;
+  }
+
+  function medicationStateLabel(state: MedicationState) {
+    if (state === 'DUE') return t.due;
+    if (state === 'TAKEN') return t.taken;
+    if (state === 'OVERDUE') return t.overdue;
+    return t.waiting;
+  }
+
+  function clearMedicationTimer(slot: MedicationSlot) {
+    const timer = medicationTimersRef.current[slot];
+    if (timer) window.clearTimeout(timer);
+    delete medicationTimersRef.current[slot];
+  }
+
+  function simulateMedicationDue(slot: MedicationSlot, time: string) {
+    clearMedicationTimer(slot);
+    setMedicationStates((current) => ({ ...current, [slot]: 'DUE' }));
+    pushEvent(`${t.medicationDueEvent}: ${medicationSlotLabel(slot)} ${time}`);
+    void saveDemoEvent('MEDICATION_DUE', deviceState, battery, currentPoint, { slot, time });
+
+    medicationTimersRef.current[slot] = window.setTimeout(() => {
+      setMedicationStates((current) => {
+        if (current[slot] !== 'DUE') return current;
+        pushEvent(`${t.medicationOverdueEvent}: ${medicationSlotLabel(slot)} ${time}`);
+        void saveDemoEvent('MEDICATION_OVERDUE', deviceState, battery, currentPoint, { slot, time });
+        return { ...current, [slot]: 'OVERDUE' };
+      });
+      delete medicationTimersRef.current[slot];
+    }, 20000);
+  }
+
+  function confirmMedicationTaken(slot: MedicationSlot, time: string) {
+    clearMedicationTimer(slot);
+    setMedicationStates((current) => ({ ...current, [slot]: 'TAKEN' }));
+    pushEvent(`${t.medicationTakenEvent}: ${medicationSlotLabel(slot)} ${time}`);
+    void saveDemoEvent('MEDICATION_TAKEN', deviceState, battery, currentPoint, { slot, time });
+  }
+
+  function simulateMedicationOverdue(slot: MedicationSlot, time: string) {
+    clearMedicationTimer(slot);
+    setMedicationStates((current) => ({ ...current, [slot]: 'OVERDUE' }));
+    pushEvent(`${t.medicationOverdueEvent}: ${medicationSlotLabel(slot)} ${time}`);
+    void saveDemoEvent('MEDICATION_OVERDUE', deviceState, battery, currentPoint, { slot, time });
+  }
+
+  const takenMedicationCount = MEDICATION_SCHEDULE.filter(
+    (item) => medicationStates[item.slot] === 'TAKEN',
+  ).length;
+
+  const nextMedication = MEDICATION_SCHEDULE.find(
+    (item) => medicationStates[item.slot] !== 'TAKEN',
+  ) ?? null;
 
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
@@ -301,6 +431,12 @@ export default function CareTrackerDemo() {
   }, [deviceState]);
 
   useEffect(() => {
+    return () => {
+      MEDICATION_SCHEDULE.forEach((item) => clearMedicationTimer(item.slot));
+    };
+  }, []);
+
+  useEffect(() => {
     setTimeline((items) =>
       items.map((item, index) =>
         index === items.length - 1 && item.id === 'start'
@@ -365,6 +501,8 @@ export default function CareTrackerDemo() {
     setDeviceState('ONLINE');
     setHistory([ROUTE[0]]);
     setLastUpdate(now);
+    MEDICATION_SCHEDULE.forEach((item) => clearMedicationTimer(item.slot));
+    setMedicationStates({ MORNING: 'WAITING', NOON: 'WAITING', EVENING: 'WAITING' });
     setTimeline([{ id: crypto.randomUUID(), at: now, text: t.resetEvent }]);
     mapRef.current?.setView(ROUTE[0], 14);
     void saveDemoEvent('RESET', 'ONLINE', 86, ROUTE[0]);
@@ -435,6 +573,73 @@ export default function CareTrackerDemo() {
           </div>
         )}
       </div>
+
+      <section className="card care-medication-demo">
+        <div className="care-medication-head">
+          <div>
+            <h2>{t.medicationTitle}</h2>
+            <p className="muted">{t.medicationHelp}</p>
+          </div>
+          <div className="care-medication-progress">
+            <span>{t.todayProgress}</span>
+            <b>{takenMedicationCount}/3</b>
+          </div>
+        </div>
+
+        {nextMedication && (
+          <div className="care-medication-next">
+            {t.nextMedication}: <b>{medicationSlotLabel(nextMedication.slot)} · {nextMedication.time}</b>
+          </div>
+        )}
+
+        <div className="care-medication-grid">
+          {MEDICATION_SCHEDULE.map((item) => {
+            const state = medicationStates[item.slot];
+            return (
+              <article className={`care-medication-item ${state.toLowerCase()}`} key={item.slot}>
+                <div className="care-medication-row">
+                  <div>
+                    <b>{medicationSlotLabel(item.slot)}</b>
+                    <div className="care-medication-time">{item.time}</div>
+                  </div>
+                  <span className={`care-medication-state ${state.toLowerCase()}`}>
+                    {medicationStateLabel(state)}
+                  </span>
+                </div>
+
+                {state === 'DUE' && <div className="muted care-medication-auto">{t.autoOverdue}</div>}
+
+                <div className="care-medication-actions">
+                  <button
+                    className="btn secondary"
+                    type="button"
+                    disabled={state === 'TAKEN'}
+                    onClick={() => simulateMedicationDue(item.slot, item.time)}
+                  >
+                    {t.simulateDue}
+                  </button>
+                  <button
+                    className="btn primary"
+                    type="button"
+                    disabled={!['DUE', 'OVERDUE'].includes(state)}
+                    onClick={() => confirmMedicationTaken(item.slot, item.time)}
+                  >
+                    {t.confirmTaken}
+                  </button>
+                  <button
+                    className="btn secondary"
+                    type="button"
+                    disabled={state === 'TAKEN'}
+                    onClick={() => simulateMedicationOverdue(item.slot, item.time)}
+                  >
+                    {t.simulateOverdue}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
 
       <div className="care-demo-main-grid">
         <div className="card">
