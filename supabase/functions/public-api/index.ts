@@ -256,12 +256,19 @@ Deno.serve(async (req: Request) => {
       const lng = Number(payload?.lng);
       const medicationSlot = payload?.medication_slot ? String(payload.medication_slot).trim().toUpperCase() : null;
       const scheduledTime = payload?.scheduled_time ? String(payload.scheduled_time).trim() : null;
+      const personGroup = String(payload?.person_group || 'DISABILITY').trim().toUpperCase();
+      const deviceId = String(payload?.device_id || 'DEMO-TRACKER-001').trim().toUpperCase();
+      const supportKind = payload?.support_kind ? String(payload.support_kind).trim().toUpperCase() : null;
 
-      const allowedEvents = new Set(['MOVE', 'SOS', 'LOW_BATTERY', 'OFFLINE', 'ONLINE', 'RESET', 'GEOFENCE_ALERT', 'OFFLINE_ALERT', 'MEDICATION_DUE', 'MEDICATION_TAKEN', 'MEDICATION_OVERDUE']);
+      const allowedEvents = new Set(['MOVE', 'SOS', 'LOW_BATTERY', 'OFFLINE', 'ONLINE', 'RESET', 'GEOFENCE_ALERT', 'OFFLINE_ALERT', 'MEDICATION_DUE', 'MEDICATION_TAKEN', 'MEDICATION_OVERDUE', 'CHECK_IN', 'WELFARE_VISIT', 'ASSISTANCE_REQUEST']);
       const allowedStates = new Set(['ONLINE', 'OFFLINE', 'SOS']);
       const medicationEvents = new Set(['MEDICATION_DUE', 'MEDICATION_TAKEN', 'MEDICATION_OVERDUE']);
       const allowedMedicationSlots = new Set(['MORNING', 'NOON', 'EVENING']);
       const allowedScheduledTimes = new Set(['08:00', '12:00', '18:00']);
+      const allowedPersonGroups = new Set(['DISABILITY', 'HOMELESS']);
+      const allowedDeviceIds = new Set(['DEMO-TRACKER-001', 'DEMO-TRACKER-002']);
+      const allowedSupportKinds = new Set(['FOOD', 'SHELTER', 'TRANSPORT', 'SOCIAL_WORK', 'BASIC_SUPPORT']);
+      const homelessOnlyEvents = new Set(['CHECK_IN', 'WELFARE_VISIT', 'ASSISTANCE_REQUEST']);
 
       if (
         !allowedEvents.has(eventType) ||
@@ -275,12 +282,19 @@ Deno.serve(async (req: Request) => {
         lat > 90 ||
         lng < -180 ||
         lng > 180 ||
+        !allowedPersonGroups.has(personGroup) ||
+        !allowedDeviceIds.has(deviceId) ||
+        (personGroup === 'DISABILITY' && deviceId !== 'DEMO-TRACKER-001') ||
+        (personGroup === 'HOMELESS' && deviceId !== 'DEMO-TRACKER-002') ||
         (medicationEvents.has(eventType) && (
+          personGroup !== 'DISABILITY' ||
           !medicationSlot ||
           !allowedMedicationSlots.has(medicationSlot) ||
           !scheduledTime ||
           !allowedScheduledTimes.has(scheduledTime)
-        ))
+        )) ||
+        (homelessOnlyEvents.has(eventType) && personGroup !== 'HOMELESS') ||
+        (eventType === 'ASSISTANCE_REQUEST' && (!supportKind || !allowedSupportKinds.has(supportKind)))
       ) {
         return json({ ok: false, code: 'INVALID_DEMO_EVENT' }, 200, origin);
       }
@@ -302,12 +316,16 @@ Deno.serve(async (req: Request) => {
         MEDICATION_DUE: 'Simulated medication reminder due',
         MEDICATION_TAKEN: 'Simulated medication confirmed',
         MEDICATION_OVERDUE: 'Simulated medication reminder overdue',
+        CHECK_IN: 'Simulated homeless-person check-in',
+        WELFARE_VISIT: 'Simulated welfare visit',
+        ASSISTANCE_REQUEST: 'Simulated assistance request',
       };
 
       const { data, error } = await admin
         .from('care_tracker_demo_events')
         .insert({
-          device_id: 'DEMO-TRACKER-001',
+          device_id: deviceId,
+          person_group: personGroup,
           event_type: eventType,
           device_state: deviceState,
           battery,
@@ -316,8 +334,9 @@ Deno.serve(async (req: Request) => {
           note: noteByEvent[eventType] ?? 'Demo event',
           medication_slot: medicationEvents.has(eventType) ? medicationSlot : null,
           scheduled_time: medicationEvents.has(eventType) ? scheduledTime : null,
+          support_kind: eventType === 'ASSISTANCE_REQUEST' ? supportKind : null,
         })
-        .select('id,device_id,event_type,device_state,battery,lat,lng,medication_slot,scheduled_time,created_at')
+        .select('id,device_id,person_group,event_type,device_state,battery,lat,lng,medication_slot,scheduled_time,support_kind,created_at')
         .single();
 
       if (error) {
