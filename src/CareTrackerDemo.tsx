@@ -310,6 +310,7 @@ export default function CareTrackerDemo() {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
+  const disabilityMarkerRef = useRef<L.Marker | null>(null);
   const routeLayerRef = useRef<L.Polyline | null>(null);
   const homelessMarkerRef = useRef<L.Marker | null>(null);
   const homelessRouteLayerRef = useRef<L.Polyline | null>(null);
@@ -503,7 +504,7 @@ export default function CareTrackerDemo() {
       iconAnchor: [24, 24],
     });
 
-    L.marker(ROUTE[0], { icon: disabilityIcon, zIndexOffset: 300 })
+    disabilityMarkerRef.current = L.marker(ROUTE[0], { icon: disabilityIcon, zIndexOffset: 300 })
       .bindTooltip('DEMO PERSON A', { direction: 'top', offset: [0, -22] })
       .addTo(map);
 
@@ -546,6 +547,7 @@ export default function CareTrackerDemo() {
       map.remove();
       mapRef.current = null;
       markerRef.current = null;
+      disabilityMarkerRef.current = null;
       routeLayerRef.current = null;
       homelessMarkerRef.current = null;
       homelessRouteLayerRef.current = null;
@@ -554,6 +556,7 @@ export default function CareTrackerDemo() {
 
   useEffect(() => {
     markerRef.current?.setLatLng(currentPoint);
+    disabilityMarkerRef.current?.setLatLng(currentPoint);
     routeLayerRef.current?.setLatLngs(history);
     mapRef.current?.panTo(currentPoint, { animate: true });
   }, [currentPoint, history]);
