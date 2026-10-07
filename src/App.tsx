@@ -413,22 +413,59 @@ export default function App() {
   }
 
   function speakText(text: string) {
-    if (!('speechSynthesis' in window)) {
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
       setVoiceStatus(t('speechUnsupported'));
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = locale;
-    utterance.rate = 0.92;
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      setVoiceStatus(t('speechError'));
+    const synth = window.speechSynthesis;
+    const targetLocale = language === 'th' ? 'th-TH' : language === 'zh' ? 'zh-CN' : 'en-US';
+
+    const speak = (retry = false) => {
+      synth.cancel();
+
+      const voices = synth.getVoices();
+      const targetPrefix = targetLocale.slice(0, 2).toLowerCase();
+      const preferredVoice =
+        voices.find((voice) => voice.lang.toLowerCase() === targetLocale.toLowerCase()) ||
+        voices.find((voice) => voice.lang.toLowerCase().startsWith(targetPrefix));
+
+      if (!preferredVoice && voices.length === 0 && !retry) {
+        window.setTimeout(() => speak(true), 250);
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = targetLocale;
+      utterance.rate = language === 'th' ? 0.88 : 0.92;
+      utterance.pitch = 1;
+
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      } else if (language === 'th') {
+        setVoiceStatus('กำลังใช้เสียงภาษาไทยของอุปกรณ์ หากไม่ได้ยินเสียง กรุณาเปิดเสียงภาษาไทยในการตั้งค่าเครื่อง');
+      }
+
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        if (language === 'th' && preferredVoice) {
+          setVoiceStatus('🔊 กำลังอ่านเป็นภาษาไทย');
+        }
+      };
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        setVoiceStatus(
+          language === 'th'
+            ? 'ไม่พบเสียงภาษาไทยในอุปกรณ์นี้ กรุณาเปิดหรือติดตั้งเสียงภาษาไทยในการตั้งค่าเครื่อง'
+            : t('speechError'),
+        );
+      };
+
+      synth.speak(utterance);
     };
-    window.speechSynthesis.speak(utterance);
+
+    speak();
   }
 
   function stopSpeaking() {
