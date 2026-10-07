@@ -102,7 +102,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return json({ ok: true, service: 'bo-luang-public-api', version: 5 }, 200, origin);
+    return json({ ok: true, service: 'bo-luang-public-api', version: 7 }, 200, origin);
   }
 
   if (req.method !== 'POST') {
