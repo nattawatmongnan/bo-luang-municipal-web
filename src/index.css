@@ -272,24 +272,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .care-alert-item.medication_overdue{border-color:#fca5a5;border-left-color:#be123c;background:#fff7f7}
 @media(max-width:850px){.care-medication-grid{grid-template-columns:1fr}.care-medication-head{flex-direction:column}.care-medication-progress{width:100%}}
 
-.care-demo-person-marker,.care-demo-home-marker{background:transparent;border:0}
-.care-demo-person-marker-dot,.care-demo-home-marker-dot{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:#fff;border:3px solid #7c3aed;box-shadow:0 4px 12px #0004;font-size:25px}
-.care-demo-home-marker-dot{width:46px;height:46px;border-color:#16a34a;background:#f0fdf4}
+.care-demo-person-marker,.care-demo-homeless-marker{background:transparent;border:0}
+.care-demo-person-marker-dot,.care-demo-homeless-marker-dot{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:#fff;border:3px solid #7c3aed;box-shadow:0 4px 12px #0004;font-size:25px}
+.care-demo-homeless-marker-dot{width:46px;height:46px;border-color:#f59e0b;background:#fffbeb}
 .care-demo-map-legend{display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:10px;font-size:.9rem;color:#475569}
 .care-demo-map-legend span{display:inline-flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:999px;background:#fff}
-.care-demo-home-card{display:grid;gap:10px}
-.care-demo-house-illustration{position:relative;height:260px;border-radius:16px;overflow:hidden;border:1px solid #cbd5e1;background:linear-gradient(#bae6fd 0 60%,#bbf7d0 60% 100%)}
-.care-demo-house-sky{position:absolute;inset:0 0 40% 0}
-.care-demo-sun{position:absolute;right:24px;top:20px;font-size:34px}
-.care-demo-cloud{position:absolute;left:22px;top:28px;font-size:42px;opacity:.9}
-.care-demo-house-ground{position:absolute;left:0;right:0;bottom:0;height:48%;display:flex;align-items:flex-end;justify-content:center;gap:28px;padding-bottom:18px}
-.care-demo-house{position:relative;width:150px;height:105px}
-.care-demo-house-roof{position:absolute;left:12px;right:12px;top:0;height:52px;background:#9a3412;clip-path:polygon(50% 0,100% 100%,0 100%)}
-.care-demo-house-wall{position:absolute;left:24px;right:24px;bottom:0;height:68px;background:#fef3c7;border:2px solid #a16207;display:flex;align-items:flex-end;justify-content:space-around;padding:0 10px 8px}
-.care-demo-window{font-size:28px;color:#0369a1}
-.care-demo-door{font-size:38px;color:#78350f;line-height:1}
-.care-demo-tree{font-size:58px;margin-bottom:4px}
-.care-demo-photo-badge{position:absolute;left:12px;top:12px;padding:5px 8px;border-radius:999px;background:#0f172acc;color:#fff;font-size:.72rem;font-weight:900;letter-spacing:.08em}
-.care-demo-home-info{display:grid;gap:4px}
-.care-demo-home-help{margin:0;line-height:1.5}
-@media(max-width:900px){.care-demo-house-illustration{height:220px}}
+
