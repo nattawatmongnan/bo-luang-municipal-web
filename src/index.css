@@ -246,3 +246,28 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .gis-live-summary{grid-template-columns:1fr}
   .gis-live-alert .btn,.gis-layer-controls .btn{width:100%}
 }
+
+.care-medication-demo{display:grid;gap:14px}
+.care-medication-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.care-medication-head h2{margin-bottom:6px}
+.care-medication-head p{margin:0;max-width:720px;line-height:1.55}
+.care-medication-progress{display:grid;gap:3px;min-width:120px;padding:10px 12px;border-radius:14px;background:#f0fdfa;border:1px solid #99f6e4;text-align:center}
+.care-medication-progress span{font-size:.8rem;color:#0f766e;font-weight:700}
+.care-medication-progress b{font-size:1.5rem;color:#115e59}
+.care-medication-next{padding:10px 12px;border-radius:12px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}
+.care-medication-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.care-medication-item{padding:14px;border:1px solid #e2e8f0;border-radius:16px;background:#fff}
+.care-medication-item.due{border-color:#fbbf24;background:#fffbeb}
+.care-medication-item.taken{border-color:#86efac;background:#f0fdf4}
+.care-medication-item.overdue{border-color:#fca5a5;background:#fff7f7}
+.care-medication-row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.care-medication-time{margin-top:4px;font-size:1.45rem;font-weight:900}
+.care-medication-state{display:inline-flex;padding:5px 8px;border-radius:999px;font-size:.78rem;font-weight:900}
+.care-medication-state.waiting{background:#e2e8f0;color:#475569}
+.care-medication-state.due{background:#fef3c7;color:#92400e}
+.care-medication-state.taken{background:#dcfce7;color:#166534}
+.care-medication-state.overdue{background:#fee2e2;color:#991b1b}
+.care-medication-auto{margin-top:10px;font-size:.84rem;line-height:1.45}
+.care-medication-actions{display:grid;gap:8px;margin-top:12px}
+.care-alert-item.medication_overdue{border-color:#fca5a5;border-left-color:#be123c;background:#fff7f7}
+@media(max-width:850px){.care-medication-grid{grid-template-columns:1fr}.care-medication-head{flex-direction:column}.care-medication-progress{width:100%}}
