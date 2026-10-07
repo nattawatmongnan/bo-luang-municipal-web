@@ -254,9 +254,14 @@ Deno.serve(async (req: Request) => {
       const battery = Number(payload?.battery);
       const lat = Number(payload?.lat);
       const lng = Number(payload?.lng);
+      const medicationSlot = payload?.medication_slot ? String(payload.medication_slot).trim().toUpperCase() : null;
+      const scheduledTime = payload?.scheduled_time ? String(payload.scheduled_time).trim() : null;
 
-      const allowedEvents = new Set(['MOVE', 'SOS', 'LOW_BATTERY', 'OFFLINE', 'ONLINE', 'RESET', 'GEOFENCE_ALERT', 'OFFLINE_ALERT']);
+      const allowedEvents = new Set(['MOVE', 'SOS', 'LOW_BATTERY', 'OFFLINE', 'ONLINE', 'RESET', 'GEOFENCE_ALERT', 'OFFLINE_ALERT', 'MEDICATION_DUE', 'MEDICATION_TAKEN', 'MEDICATION_OVERDUE']);
       const allowedStates = new Set(['ONLINE', 'OFFLINE', 'SOS']);
+      const medicationEvents = new Set(['MEDICATION_DUE', 'MEDICATION_TAKEN', 'MEDICATION_OVERDUE']);
+      const allowedMedicationSlots = new Set(['MORNING', 'NOON', 'EVENING']);
+      const allowedScheduledTimes = new Set(['08:00', '12:00', '18:00']);
 
       if (
         !allowedEvents.has(eventType) ||
@@ -269,7 +274,13 @@ Deno.serve(async (req: Request) => {
         lat < -90 ||
         lat > 90 ||
         lng < -180 ||
-        lng > 180
+        lng > 180 ||
+        (medicationEvents.has(eventType) && (
+          !medicationSlot ||
+          !allowedMedicationSlots.has(medicationSlot) ||
+          !scheduledTime ||
+          !allowedScheduledTimes.has(scheduledTime)
+        ))
       ) {
         return json({ ok: false, code: 'INVALID_DEMO_EVENT' }, 200, origin);
       }
@@ -288,6 +299,9 @@ Deno.serve(async (req: Request) => {
         RESET: 'Demo reset',
         GEOFENCE_ALERT: 'Simulated geofence alert',
         OFFLINE_ALERT: 'Simulated offline timeout alert',
+        MEDICATION_DUE: 'Simulated medication reminder due',
+        MEDICATION_TAKEN: 'Simulated medication confirmed',
+        MEDICATION_OVERDUE: 'Simulated medication reminder overdue',
       };
 
       const { data, error } = await admin
@@ -300,8 +314,10 @@ Deno.serve(async (req: Request) => {
           lat,
           lng,
           note: noteByEvent[eventType] ?? 'Demo event',
+          medication_slot: medicationEvents.has(eventType) ? medicationSlot : null,
+          scheduled_time: medicationEvents.has(eventType) ? scheduledTime : null,
         })
-        .select('id,device_id,event_type,device_state,battery,lat,lng,created_at')
+        .select('id,device_id,event_type,device_state,battery,lat,lng,medication_slot,scheduled_time,created_at')
         .single();
 
       if (error) {
