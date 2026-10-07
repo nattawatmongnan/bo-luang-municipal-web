@@ -12,6 +12,8 @@ create table if not exists public.care_tracker_demo_events (
   lat double precision,
   lng double precision,
   note text,
+  medication_slot text check (medication_slot is null or medication_slot in ('MORNING','NOON','EVENING')),
+  scheduled_time time,
   alert_status text not null default 'NEW' check (alert_status in ('NEW','ACCEPTED','IN_PROGRESS','CLOSED')),
   accepted_at timestamptz,
   accepted_by uuid references auth.users(id) on delete set null,
@@ -23,7 +25,7 @@ create table if not exists public.care_tracker_demo_events (
   constraint care_tracker_demo_device_chk
     check (device_id ~ '^DEMO-TRACKER-[0-9]{3}$'),
   constraint care_tracker_demo_event_chk
-    check (event_type in ('MOVE','SOS','LOW_BATTERY','OFFLINE','ONLINE','RESET','GEOFENCE_ALERT','OFFLINE_ALERT')),
+    check (event_type in ('MOVE','SOS','LOW_BATTERY','OFFLINE','ONLINE','RESET','GEOFENCE_ALERT','OFFLINE_ALERT','MEDICATION_DUE','MEDICATION_TAKEN','MEDICATION_OVERDUE')),
   constraint care_tracker_demo_state_chk
     check (device_state in ('ONLINE','OFFLINE','SOS')),
   constraint care_tracker_demo_lat_chk
@@ -106,7 +108,7 @@ begin
     accepted_at = coalesce(e.accepted_at, now()),
     accepted_by = coalesce(e.accepted_by, auth.uid())
   where e.id = p_event_id
-    and e.event_type in ('SOS','GEOFENCE_ALERT','OFFLINE_ALERT')
+    and e.event_type in ('SOS','GEOFENCE_ALERT','OFFLINE_ALERT','MEDICATION_OVERDUE')
   returning e.id, e.alert_status, e.accepted_at, e.accepted_by;
 end;
 $$;
