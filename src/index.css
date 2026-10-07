@@ -221,3 +221,28 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .care-alert-status.closed{background:#e2e8f0;color:#334155}
 .care-alert-actions{gap:8px;flex-wrap:wrap}
 .care-alert-closed-note{display:inline-flex;align-items:center;padding:8px 10px;border-radius:10px;background:#e2e8f0;color:#334155;font-weight:800}
+
+.gis-live-alert{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border:1px solid #fecaca;border-left:6px solid #dc2626;border-radius:14px;background:#fff7f7;margin-bottom:14px}
+.gis-live-alert>div:first-child{display:grid;gap:4px}
+.gis-live-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.gis-live-kpi{padding:12px 14px;border:1px solid #dbeafe;border-radius:14px;background:#fff}
+.gis-live-kpi span{display:block;color:#64748b;font-size:.88rem}
+.gis-live-kpi b{display:block;margin-top:4px;font-size:1.6rem}
+.gis-live-kpi.high{border-color:#fecaca;background:#fff7f7}
+.gis-live-kpi.high b{color:#b91c1c}
+.gis-live-kpi.active{border-color:#bfdbfe;background:#eff6ff}
+.gis-live-kpi.active b{color:#1d4ed8}
+.gis-live-kpi.checking{border-color:#fde68a;background:#fffbeb}
+.gis-live-kpi.checking b{color:#92400e}
+.gis-layer-controls{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.incident-person-marker.high-priority .incident-person-dot{animation:gisHighPulse 1.5s ease-in-out infinite}
+@keyframes gisHighPulse{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(220,38,38,0))}50%{transform:scale(1.1);filter:drop-shadow(0 0 8px rgba(220,38,38,.55))}}
+@media(max-width:800px){
+  .gis-live-summary{grid-template-columns:1fr 1fr}
+  .gis-live-alert,.gis-layer-controls{align-items:stretch;flex-direction:column}
+  .gis-live-alert .row,.gis-layer-controls .row{width:100%}
+}
+@media(max-width:480px){
+  .gis-live-summary{grid-template-columns:1fr}
+  .gis-live-alert .btn,.gis-layer-controls .btn{width:100%}
+}
